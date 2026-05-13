@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:takken.basekernel.ne.jp)",
+      "Bash(pip3 show *)",
+      "Bash(gh auth *)",
+      "Bash(pip3 install *)",
+      "Bash(python3 scraper.py)"
+    ]
+  }
+}

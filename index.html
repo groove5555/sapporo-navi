@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>札幌業者ナビ</title>
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="業者ナビ">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    * { -webkit-tap-highlight-color: transparent; }
+    body { overscroll-behavior: none; }
+
+    .card { transition: opacity 0.2s; }
+    .card.visited {
+      opacity: 0.45;
+      background-color: #f8fafc !important;
+    }
+    .card.visited .company-name { text-decoration: line-through; color: #94a3b8; }
+
+    .badge-kita  { background: #dbeafe; color: #1d4ed8; }
+    .badge-higashi { background: #dcfce7; color: #15803d; }
+
+    #memo-modal { display: none; }
+    #memo-modal.open { display: flex; }
+
+    .btn-call { background: #16a34a; }
+    .btn-call:active { background: #15803d; }
+    .btn-nav  { background: #dc2626; }
+    .btn-nav:active  { background: #b91c1c; }
+    .btn-info { background: #2563eb; }
+    .btn-info:active { background: #1d4ed8; }
+
+    .detail-panel { display: none; }
+    .detail-panel.open { display: block; }
+
+    ::-webkit-scrollbar { display: none; }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans select-none">
+
+<!-- ヘッダー -->
+<div class="bg-red-700 text-white sticky top-0 z-30 shadow-xl">
+  <div class="max-w-lg mx-auto px-4 py-3">
+    <div class="flex items-center justify-between">
+      <h1 class="text-lg font-bold tracking-wide">🏢 札幌業者ナビ</h1>
+      <div class="flex gap-2">
+        <button onclick="toggleFilter('kita')"   id="btn-kita"   class="px-2 py-1 rounded text-xs font-bold bg-blue-200 text-blue-800">北</button>
+        <button onclick="toggleFilter('higashi')" id="btn-higashi" class="px-2 py-1 rounded text-xs font-bold bg-green-200 text-green-800">東</button>
+        <button onclick="confirmReset()" class="px-2 py-1 rounded text-xs font-bold bg-red-200 text-red-800">リセット</button>
+      </div>
+    </div>
+    <input
+      type="search"
+      id="search"
+      placeholder="社名・住所・宅建番号で検索..."
+      autocomplete="off"
+      class="w-full mt-2 px-3 py-2 rounded-lg text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-red-300"
+      oninput="renderList()"
+    >
+    <div class="flex justify-between mt-2 text-xs text-red-200">
+      <span id="counter">読み込み中...</span>
+      <span id="updated"></span>
+    </div>
+  </div>
+</div>
+
+<!-- リスト -->
+<div class="max-w-lg mx-auto px-3 py-3 space-y-3" id="list"></div>
+
+<!-- 空状態 -->
+<div id="empty" class="hidden text-center text-slate-400 mt-20 text-sm">
+  該当する業者が見つかりません
+</div>
+
+<!-- メモモーダル -->
+<div id="memo-modal" class="fixed inset-0 z-50 bg-black/60 items-end justify-center">
+  <div class="bg-white w-full max-w-lg rounded-t-2xl p-5 pb-8 shadow-2xl">
+    <div class="flex justify-between items-center mb-3">
+      <h2 class="font-bold text-base" id="memo-title">メモ</h2>
+      <button onclick="closeMemo()" class="text-slate-400 text-2xl leading-none">&times;</button>
+    </div>
+
+    <div class="grid grid-cols-2 gap-3 mb-4">
+      <label class="flex items-center gap-2 bg-slate-50 p-3 rounded-lg cursor-pointer">
+        <input type="checkbox" id="memo-has-bukken" class="w-4 h-4 accent-blue-600">
+        <span class="text-sm font-medium">物件あり</span>
+      </label>
+      <label class="flex items-center gap-2 bg-slate-50 p-3 rounded-lg cursor-pointer">
+        <input type="checkbox" id="memo-needs-followup" class="w-4 h-4 accent-orange-500">
+        <span class="text-sm font-medium">要フォロー</span>
+      </label>
+    </div>
+
+    <label class="block text-xs text-slate-500 mb-1">担当者名</label>
+    <input type="text" id="memo-person" placeholder="例：田中 課長"
+      class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-blue-300">
+
+    <label class="block text-xs text-slate-500 mb-1">メモ</label>
+    <textarea id="memo-text" rows="3" placeholder="訪問内容・物件情報・次回アクション等"
+      class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-300"></textarea>
+
+    <button onclick="saveMemo()"
+      class="w-full mt-4 bg-blue-600 text-white font-bold py-3 rounded-xl text-sm active:bg-blue-800">
+      保存する
+    </button>
+  </div>
+</div>
+
+<script>
+// ===== データ管理 =====
+let allData = [];
+let filters = { kita: true, higashi: true };
+let currentMemoId = null;
+
+// LocalStorageキー
+const LS_VISITED = 'visited_v2';
+const LS_MEMOS   = 'memos_v2';
+
+function getVisited() {
+  try { return JSON.parse(localStorage.getItem(LS_VISITED) || '{}'); } catch { return {}; }
+}
+function getMemos() {
+  try { return JSON.parse(localStorage.getItem(LS_MEMOS) || '{}'); } catch { return {}; }
+}
+function saveVisited(v) { localStorage.setItem(LS_VISITED, JSON.stringify(v)); }
+function saveMemos(m)   { localStorage.setItem(LS_MEMOS,   JSON.stringify(m)); }
+
+// ===== データ読み込み =====
+async function loadData() {
+  try {
+    const res = await fetch('data.json?_=' + Date.now());
+    const json = await res.json();
+    allData = json.companies || [];
+
+    document.getElementById('updated').textContent = '更新: ' + (json.updated || '');
+    renderList();
+  } catch (e) {
+    // data.jsonがない場合はサンプルデータを表示
+    document.getElementById('counter').textContent = 'data.jsonが見つかりません';
+    document.getElementById('list').innerHTML = `
+      <div class="bg-yellow-50 border border-yellow-200 rounded-xl p-4 text-sm text-yellow-800">
+        <p class="font-bold mb-1">⚠️ データファイルが未生成です</p>
+        <p>ターミナルで <code class="bg-yellow-100 px-1 rounded">python scraper.py</code> を実行してから、<br>
+        data.json をリポジトリにコミットしてください。</p>
+      </div>`;
+  }
+}
+
+// ===== フィルター =====
+function toggleFilter(sibu) {
+  filters[sibu] = !filters[sibu];
+  const btn = document.getElementById('btn-' + sibu);
+  btn.style.opacity = filters[sibu] ? '1' : '0.4';
+  renderList();
+}
+
+// ===== リスト描画 =====
+function renderList() {
+  const q = (document.getElementById('search').value || '').trim().toLowerCase();
+  const visited = getVisited();
+  const memos   = getMemos();
+
+  const filtered = allData.filter(c => {
+    const sibuKey = c.sibu === '北支部' ? 'kita' : 'higashi';
+    if (!filters[sibuKey]) return false;
+    if (!q) return true;
+    return [c.name, c.address, c.takken_no, c.phone, c.representative]
+      .some(v => (v || '').toLowerCase().includes(q));
+  });
+
+  // 未訪問を上に表示
+  filtered.sort((a, b) => {
+    const va = visited[a.id] ? 1 : 0;
+    const vb = visited[b.id] ? 1 : 0;
+    return va - vb;
+  });
+
+  const visitedCount = filtered.filter(c => visited[c.id]).length;
+  document.getElementById('counter').textContent =
+    `${filtered.length}件表示 (訪問済: ${visitedCount}件)`;
+
+  const listEl = document.getElementById('list');
+  const emptyEl = document.getElementById('empty');
+
+  if (filtered.length === 0) {
+    listEl.innerHTML = '';
+    emptyEl.classList.remove('hidden');
+    return;
+  }
+  emptyEl.classList.add('hidden');
+
+  listEl.innerHTML = filtered.map(c => {
+    const isVisited = !!visited[c.id];
+    const memo = memos[c.id] || {};
+    const sibuKey = c.sibu === '北支部' ? 'kita' : 'higashi';
+    const badgeClass = sibuKey === 'kita' ? 'badge-kita' : 'badge-higashi';
+
+    const memoTags = [
+      memo.has_bukken   ? '<span class="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-xs">物件あり</span>' : '',
+      memo.needs_followup ? '<span class="bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full text-xs">要フォロー</span>' : '',
+      memo.person ? `<span class="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full text-xs">👤 ${escHtml(memo.person)}</span>` : '',
+    ].filter(Boolean).join('');
+
+    const memoText = memo.text
+      ? `<p class="text-xs text-slate-500 mt-1 line-clamp-2">📝 ${escHtml(memo.text)}</p>` : '';
+
+    return `
+    <div class="card bg-white rounded-xl shadow-sm overflow-hidden ${isVisited ? 'visited' : ''}" id="card-${c.id}">
+      <div class="p-4">
+        <!-- ヘッダー行 -->
+        <div class="flex items-start justify-between gap-2">
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2 mb-0.5">
+              <span class="text-xs px-2 py-0.5 rounded-full font-bold ${badgeClass}">${c.sibu}</span>
+              ${isVisited ? '<span class="text-xs bg-slate-200 text-slate-500 px-2 py-0.5 rounded-full">訪問済</span>' : ''}
+            </div>
+            <h2 class="company-name font-bold text-base leading-snug">${escHtml(c.name)}</h2>
+          </div>
+          <!-- 訪問チェックボタン -->
+          <button onclick="toggleVisited('${c.id}')"
+            class="flex-shrink-0 w-10 h-10 rounded-full border-2 flex items-center justify-center text-lg
+                   ${isVisited ? 'bg-slate-200 border-slate-300 text-slate-400' : 'border-slate-300 text-slate-300'}">
+            ${isVisited ? '✓' : '○'}
+          </button>
+        </div>
+
+        <!-- 基本情報 -->
+        <div class="mt-2 space-y-1 text-sm text-slate-600">
+          <p>📍 ${escHtml(c.address)}</p>
+          ${c.phone ? `<p>📞 ${escHtml(c.phone)}</p>` : ''}
+          ${c.takken_no ? `<p class="text-xs text-slate-400">🏛️ ${escHtml(c.takken_no)}</p>` : ''}
+        </div>
+
+        <!-- メモタグ -->
+        ${memoTags ? `<div class="flex flex-wrap gap-1 mt-2">${memoTags}</div>` : ''}
+        ${memoText}
+      </div>
+
+      <!-- アクションボタン -->
+      <div class="grid grid-cols-3 border-t border-slate-100">
+        ${c.phone ? `
+        <button onclick="callPhone('${escHtml(c.phone)}')"
+          class="btn-call text-white py-3 text-sm font-bold flex items-center justify-center gap-1">
+          📞 電話
+        </button>` : `<div class="bg-slate-100 py-3"></div>`}
+
+        <button onclick="openNav('${escHtml(c.address)}')"
+          class="btn-nav text-white py-3 text-sm font-bold flex items-center justify-center gap-1">
+          🗺️ ナビ
+        </button>
+
+        <button onclick="openMemo('${c.id}', '${escHtml(c.name)}')"
+          class="btn-info text-white py-3 text-sm font-bold flex items-center justify-center gap-1">
+          ✏️ メモ
+        </button>
+      </div>
+
+      <!-- 詳細（HP・代表者名） -->
+      ${(c.hp || c.representative) ? `
+      <div class="px-4 pb-3 pt-1 text-xs text-slate-500 space-y-0.5 border-t border-slate-50">
+        ${c.representative ? `<p>代表: ${escHtml(c.representative)}</p>` : ''}
+        ${c.hp ? `<p><a href="${escHtml(c.hp)}" target="_blank" class="text-blue-500 underline break-all">${escHtml(c.hp)}</a></p>` : ''}
+      </div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+// ===== アクション =====
+function callPhone(phone) {
+  const num = phone.replace(/[^0-9+]/g, '');
+  window.location.href = 'tel:' + num;
+}
+
+function openNav(address) {
+  const query = encodeURIComponent(address);
+  window.open(`https://maps.google.com/?q=${query}&dirflg=d`, '_blank');
+}
+
+function toggleVisited(id) {
+  const visited = getVisited();
+  visited[id] = !visited[id];
+  if (!visited[id]) delete visited[id];
+  saveVisited(visited);
+  renderList();
+}
+
+function confirmReset() {
+  if (confirm('訪問記録とメモを全てリセットしますか？\nこの操作は元に戻せません。')) {
+    localStorage.removeItem(LS_VISITED);
+    localStorage.removeItem(LS_MEMOS);
+    renderList();
+  }
+}
+
+// ===== メモ =====
+function openMemo(id, name) {
+  currentMemoId = id;
+  const memos = getMemos();
+  const m = memos[id] || {};
+  document.getElementById('memo-title').textContent = name;
+  document.getElementById('memo-has-bukken').checked = !!m.has_bukken;
+  document.getElementById('memo-needs-followup').checked = !!m.needs_followup;
+  document.getElementById('memo-person').value = m.person || '';
+  document.getElementById('memo-text').value = m.text || '';
+  document.getElementById('memo-modal').classList.add('open');
+  setTimeout(() => document.getElementById('memo-person').focus(), 100);
+}
+
+function closeMemo() {
+  document.getElementById('memo-modal').classList.remove('open');
+  currentMemoId = null;
+}
+
+function saveMemo() {
+  if (!currentMemoId) return;
+  const memos = getMemos();
+  memos[currentMemoId] = {
+    has_bukken:    document.getElementById('memo-has-bukken').checked,
+    needs_followup: document.getElementById('memo-needs-followup').checked,
+    person: document.getElementById('memo-person').value.trim(),
+    text:   document.getElementById('memo-text').value.trim(),
+  };
+  saveMemos(memos);
+  closeMemo();
+  renderList();
+}
+
+// モーダル外タップで閉じる
+document.getElementById('memo-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeMemo();
+});
+
+// ===== ユーティリティ =====
+function escHtml(str) {
+  return (str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// ===== 起動 =====
+loadData();
+</script>
+</body>
+</html>
