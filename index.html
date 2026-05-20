@@ -241,12 +241,12 @@ function renderList() {
     // ステータスボタン表示
     const stBtn = st
       ? `<button onclick="openPopup(event,'${c.id}')"
-           class="flex-shrink-0 px-2.5 py-1 rounded-full text-xs font-bold sbadge-${st} border border-current/20">
-           ${{予定:'📋 予定', 済み:'✅ 済み', なし:'🚫 なし'}[st]}
+           class="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold sbadge-${st} border border-current/20 whitespace-nowrap">
+           ${{予定:'📋 訪問予定', 済み:'✅ 訪問済み', なし:'🚫 訪問しない'}[st]}
          </button>`
       : `<button onclick="openPopup(event,'${c.id}')"
-           class="flex-shrink-0 w-9 h-9 rounded-full border-2 border-dashed border-slate-300 text-slate-300 flex items-center justify-center text-lg">
-           ＋
+           class="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-400 border border-slate-200 whitespace-nowrap">
+           ＋ ステータス
          </button>`;
 
     // メモタグ
