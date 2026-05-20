@@ -11,83 +11,127 @@
   <style>
     * { -webkit-tap-highlight-color: transparent; }
     body { overscroll-behavior: none; }
-
-    .card { transition: opacity 0.2s; }
-    .card.visited {
-      opacity: 0.45;
-      background-color: #f8fafc !important;
-    }
-    .card.visited .company-name { text-decoration: line-through; color: #94a3b8; }
-
-    .badge-中央支部 { background: #f3e8ff; color: #7e22ce; }
-    .badge-東支部   { background: #dcfce7; color: #15803d; }
-    .badge-西支部   { background: #fef9c3; color: #854d0e; }
-    .badge-南支部   { background: #ffedd5; color: #c2410c; }
-    .badge-北支部   { background: #dbeafe; color: #1d4ed8; }
-
-    #memo-modal { display: none; }
-    #memo-modal.open { display: flex; }
-
-    .btn-call { background: #16a34a; }
-    .btn-call:active { background: #15803d; }
-    .btn-nav  { background: #dc2626; }
-    .btn-nav:active  { background: #b91c1c; }
-    .btn-info { background: #2563eb; }
-    .btn-info:active { background: #1d4ed8; }
-
-    .detail-panel { display: none; }
-    .detail-panel.open { display: block; }
-
     ::-webkit-scrollbar { display: none; }
+
+    /* ===== カードステータス ===== */
+    .card { transition: opacity 0.15s; border-left: 4px solid transparent; }
+    .card.status-予定  { border-left-color: #3b82f6; }
+    .card.status-済み  { border-left-color: #22c55e; opacity: 0.55; }
+    .card.status-済み .company-name { text-decoration: line-through; color: #94a3b8; }
+    .card.status-なし  { border-left-color: #cbd5e1; opacity: 0.35; }
+    .card.status-なし .company-name { color: #94a3b8; }
+
+    /* ===== 支部バッジ ===== */
+    .badge-中央支部 { background:#f3e8ff; color:#7e22ce; }
+    .badge-東支部   { background:#dcfce7; color:#15803d; }
+    .badge-西支部   { background:#fef9c3; color:#854d0e; }
+    .badge-南支部   { background:#ffedd5; color:#c2410c; }
+    .badge-北支部   { background:#dbeafe; color:#1d4ed8; }
+
+    /* ===== ステータスバッジ ===== */
+    .sbadge-予定 { background:#dbeafe; color:#1d4ed8; }
+    .sbadge-済み { background:#dcfce7; color:#15803d; }
+    .sbadge-なし { background:#f1f5f9; color:#94a3b8; }
+
+    /* ===== タブ ===== */
+    .tab-btn { flex:1; padding:8px 4px; font-size:12px; font-weight:700;
+               border-bottom:3px solid transparent; color:#94a3b8; transition:all 0.15s; }
+    .tab-btn.active { color:#dc2626; border-bottom-color:#dc2626; }
+
+    /* ===== ステータスポップアップ ===== */
+    #status-popup { display:none; position:fixed; z-index:60;
+                    background:white; border-radius:16px; padding:8px;
+                    box-shadow:0 8px 32px rgba(0,0,0,0.18); min-width:160px; }
+    #status-popup.open { display:block; }
+    .sp-btn { display:flex; align-items:center; gap:10px; width:100%;
+              padding:10px 14px; border-radius:10px; font-size:14px; font-weight:600; }
+    .sp-btn:active { background:#f1f5f9; }
+    .sp-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+
+    /* ===== モーダル ===== */
+    #memo-modal { display:none; }
+    #memo-modal.open { display:flex; }
+
+    /* ===== ボタン ===== */
+    .btn-call { background:#16a34a; } .btn-call:active { background:#15803d; }
+    .btn-nav  { background:#dc2626; } .btn-nav:active  { background:#b91c1c; }
+    .btn-info { background:#2563eb; } .btn-info:active { background:#1d4ed8; }
   </style>
 </head>
 <body class="bg-slate-100 text-slate-800 font-sans select-none">
 
-<!-- ヘッダー -->
+<!-- ===== ヘッダー ===== -->
 <div class="bg-red-700 text-white sticky top-0 z-30 shadow-xl">
-  <div class="max-w-lg mx-auto px-4 py-3">
-    <div class="flex items-center justify-between">
+  <div class="max-w-lg mx-auto px-4 pt-3 pb-2">
+
+    <!-- タイトル行 -->
+    <div class="flex items-center justify-between mb-2">
       <h1 class="text-lg font-bold tracking-wide">🏢 札幌業者ナビ</h1>
-      <div class="flex gap-1 flex-wrap">
-        <button onclick="toggleFilter('中央支部')" id="btn-中央支部" class="px-2 py-1 rounded text-xs font-bold bg-purple-200 text-purple-800">中央</button>
-        <button onclick="toggleFilter('東支部')"   id="btn-東支部"   class="px-2 py-1 rounded text-xs font-bold bg-green-200 text-green-800">東</button>
-        <button onclick="toggleFilter('西支部')"   id="btn-西支部"   class="px-2 py-1 rounded text-xs font-bold bg-yellow-200 text-yellow-800">西</button>
-        <button onclick="toggleFilter('南支部')"   id="btn-南支部"   class="px-2 py-1 rounded text-xs font-bold bg-orange-200 text-orange-800">南</button>
-        <button onclick="toggleFilter('北支部')"   id="btn-北支部"   class="px-2 py-1 rounded text-xs font-bold bg-blue-200 text-blue-800">北</button>
-        <button onclick="confirmReset()" class="px-2 py-1 rounded text-xs font-bold bg-red-200 text-red-800">リセット</button>
-      </div>
+      <button onclick="confirmReset()" class="px-2 py-1 rounded text-xs font-bold bg-red-200 text-red-800">リセット</button>
     </div>
-    <input
-      type="search"
-      id="search"
-      placeholder="社名・住所・宅建番号で検索..."
-      autocomplete="off"
-      class="w-full mt-2 px-3 py-2 rounded-lg text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-red-300"
-      oninput="renderList()"
-    >
-    <div class="flex justify-between mt-2 text-xs text-red-200">
+
+    <!-- 支部フィルター -->
+    <div class="flex gap-1 mb-2">
+      <button onclick="toggleSibu('中央支部')" id="btn-中央支部" class="px-2 py-1 rounded text-xs font-bold bg-purple-200 text-purple-800">中央</button>
+      <button onclick="toggleSibu('東支部')"   id="btn-東支部"   class="px-2 py-1 rounded text-xs font-bold bg-green-200  text-green-800">東</button>
+      <button onclick="toggleSibu('西支部')"   id="btn-西支部"   class="px-2 py-1 rounded text-xs font-bold bg-yellow-200 text-yellow-800">西</button>
+      <button onclick="toggleSibu('南支部')"   id="btn-南支部"   class="px-2 py-1 rounded text-xs font-bold bg-orange-200 text-orange-800">南</button>
+      <button onclick="toggleSibu('北支部')"   id="btn-北支部"   class="px-2 py-1 rounded text-xs font-bold bg-blue-200   text-blue-800">北</button>
+    </div>
+
+    <!-- 検索 -->
+    <input type="search" id="search" placeholder="社名・住所・宅建番号で検索..."
+      autocomplete="off" oninput="renderList()"
+      class="w-full px-3 py-2 rounded-lg text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-red-300">
+
+    <!-- カウンター -->
+    <div class="flex justify-between mt-1.5 text-xs text-red-200">
       <span id="counter">読み込み中...</span>
       <span id="updated"></span>
     </div>
   </div>
+
+  <!-- ===== ステータスタブ ===== -->
+  <div class="flex bg-white border-t border-slate-100 max-w-lg mx-auto">
+    <button class="tab-btn active" id="tab-全て"   onclick="switchTab('全て')">全て</button>
+    <button class="tab-btn"        id="tab-予定"   onclick="switchTab('予定')">📋 訪問予定</button>
+    <button class="tab-btn"        id="tab-済み"   onclick="switchTab('済み')">✅ 訪問済み</button>
+    <button class="tab-btn"        id="tab-なし"   onclick="switchTab('なし')">🚫 訪問しない</button>
+  </div>
 </div>
 
-<!-- リスト -->
+<!-- ===== リスト ===== -->
 <div class="max-w-lg mx-auto px-3 py-3 space-y-3" id="list"></div>
+<div id="empty" class="hidden text-center text-slate-400 mt-20 text-sm">該当する業者が見つかりません</div>
 
-<!-- 空状態 -->
-<div id="empty" class="hidden text-center text-slate-400 mt-20 text-sm">
-  該当する業者が見つかりません
+<!-- ===== ステータス選択ポップアップ ===== -->
+<div id="status-popup">
+  <button class="sp-btn" onclick="setStatus(null)">
+    <span class="sp-dot" style="background:#e2e8f0;border:2px solid #cbd5e1"></span>
+    <span class="text-slate-500">未設定に戻す</span>
+  </button>
+  <button class="sp-btn" onclick="setStatus('予定')">
+    <span class="sp-dot" style="background:#3b82f6"></span>
+    <span class="text-blue-700">📋 訪問予定</span>
+  </button>
+  <button class="sp-btn" onclick="setStatus('済み')">
+    <span class="sp-dot" style="background:#22c55e"></span>
+    <span class="text-green-700">✅ 訪問済み</span>
+  </button>
+  <button class="sp-btn" onclick="setStatus('なし')">
+    <span class="sp-dot" style="background:#cbd5e1"></span>
+    <span class="text-slate-400">🚫 訪問しない</span>
+  </button>
 </div>
+<div id="popup-overlay" class="hidden fixed inset-0 z-50" onclick="closePopup()"></div>
 
-<!-- メモモーダル -->
+<!-- ===== メモモーダル ===== -->
 <div id="memo-modal" class="fixed inset-0 z-50 bg-black/60 items-end justify-center">
   <div class="bg-white w-full max-w-lg rounded-t-2xl p-5 pb-8 shadow-2xl">
     <div class="flex justify-between items-center mb-3">
       <h2 class="font-bold text-base" id="memo-title">メモ</h2>
       <button onclick="closeMemo()" class="text-slate-400 text-2xl leading-none">&times;</button>
     </div>
-
     <div class="grid grid-cols-2 gap-3 mb-4">
       <label class="flex items-center gap-2 bg-slate-50 p-3 rounded-lg cursor-pointer">
         <input type="checkbox" id="memo-has-bukken" class="w-4 h-4 accent-blue-600">
@@ -98,171 +142,153 @@
         <span class="text-sm font-medium">要フォロー</span>
       </label>
     </div>
-
     <label class="block text-xs text-slate-500 mb-1">担当者名</label>
     <input type="text" id="memo-person" placeholder="例：田中 課長"
       class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-blue-300">
-
     <label class="block text-xs text-slate-500 mb-1">メモ</label>
     <textarea id="memo-text" rows="3" placeholder="訪問内容・物件情報・次回アクション等"
       class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-300"></textarea>
-
     <button onclick="saveMemo()"
-      class="w-full mt-4 bg-blue-600 text-white font-bold py-3 rounded-xl text-sm active:bg-blue-800">
-      保存する
-    </button>
+      class="w-full mt-4 bg-blue-600 text-white font-bold py-3 rounded-xl text-sm active:bg-blue-800">保存する</button>
   </div>
 </div>
 
 <script>
-// ===== データ管理 =====
+// ===== 状態 =====
 let allData = [];
-let filters = { '中央支部': true, '東支部': true, '西支部': true, '南支部': true, '北支部': true };
-let currentMemoId = null;
+let sibuFilters = { '中央支部':true, '東支部':true, '西支部':true, '南支部':true, '北支部':true };
+let currentTab  = '全て';   // '全て' | '予定' | '済み' | 'なし'
+let currentMemoId  = null;
+let currentPopupId = null;
 
-// LocalStorageキー
-const LS_VISITED = 'visited_v2';
-const LS_MEMOS   = 'memos_v2';
+// ===== LocalStorage =====
+const LS_STATUS = 'status_v3';
+const LS_MEMOS  = 'memos_v2';
 
-function getVisited() {
-  try { return JSON.parse(localStorage.getItem(LS_VISITED) || '{}'); } catch { return {}; }
-}
-function getMemos() {
-  try { return JSON.parse(localStorage.getItem(LS_MEMOS) || '{}'); } catch { return {}; }
-}
-function saveVisited(v) { localStorage.setItem(LS_VISITED, JSON.stringify(v)); }
-function saveMemos(m)   { localStorage.setItem(LS_MEMOS,   JSON.stringify(m)); }
+function getStatuses() { try { return JSON.parse(localStorage.getItem(LS_STATUS)||'{}'); } catch{return{};} }
+function getMemos()    { try { return JSON.parse(localStorage.getItem(LS_MEMOS) ||'{}'); } catch{return{};} }
+function saveStatuses(s){ localStorage.setItem(LS_STATUS, JSON.stringify(s)); }
+function saveMemos(m)   { localStorage.setItem(LS_MEMOS,  JSON.stringify(m)); }
 
 // ===== データ読み込み =====
 async function loadData() {
   try {
-    const res = await fetch('data.json?_=' + Date.now());
+    const res  = await fetch('data.json?_='+Date.now());
     const json = await res.json();
     allData = json.companies || [];
-
-    document.getElementById('updated').textContent = '更新: ' + (json.updated || '');
+    document.getElementById('updated').textContent = '更新:' + (json.updated||'');
     renderList();
-  } catch (e) {
-    // data.jsonがない場合はサンプルデータを表示
+  } catch(e) {
     document.getElementById('counter').textContent = 'data.jsonが見つかりません';
-    document.getElementById('list').innerHTML = `
-      <div class="bg-yellow-50 border border-yellow-200 rounded-xl p-4 text-sm text-yellow-800">
-        <p class="font-bold mb-1">⚠️ データファイルが未生成です</p>
-        <p>ターミナルで <code class="bg-yellow-100 px-1 rounded">python scraper.py</code> を実行してから、<br>
-        data.json をリポジトリにコミットしてください。</p>
-      </div>`;
   }
 }
 
-// ===== フィルター =====
-function toggleFilter(sibu) {
-  filters[sibu] = !filters[sibu];
-  const btn = document.getElementById('btn-' + sibu);
-  if (btn) btn.style.opacity = filters[sibu] ? '1' : '0.4';
+// ===== タブ切り替え =====
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-'+tab).classList.add('active');
+  renderList();
+}
+
+// ===== 支部フィルター =====
+function toggleSibu(sibu) {
+  sibuFilters[sibu] = !sibuFilters[sibu];
+  const btn = document.getElementById('btn-'+sibu);
+  if (btn) btn.style.opacity = sibuFilters[sibu] ? '1' : '0.35';
   renderList();
 }
 
 // ===== リスト描画 =====
 function renderList() {
-  const q = (document.getElementById('search').value || '').trim().toLowerCase();
-  const visited = getVisited();
-  const memos   = getMemos();
+  const q        = (document.getElementById('search').value||'').trim().toLowerCase();
+  const statuses = getStatuses();
+  const memos    = getMemos();
 
-  const filtered = allData.filter(c => {
-    if (!filters[c.sibu]) return false;
+  // フィルタリング
+  let list = allData.filter(c => {
+    if (!sibuFilters[c.sibu]) return false;
+    const st = statuses[c.id] || null;
+    if (currentTab === '予定' && st !== '予定') return false;
+    if (currentTab === '済み' && st !== '済み') return false;
+    if (currentTab === 'なし' && st !== 'なし') return false;
+    if (currentTab === '全て' && st === 'なし') return false; // 「全て」タブでは「訪問しない」を非表示
     if (!q) return true;
     return [c.name, c.address, c.takken_no, c.phone, c.representative]
-      .some(v => (v || '').toLowerCase().includes(q));
+      .some(v => (v||'').toLowerCase().includes(q));
   });
 
-  // 未訪問を上に表示
-  filtered.sort((a, b) => {
-    const va = visited[a.id] ? 1 : 0;
-    const vb = visited[b.id] ? 1 : 0;
-    return va - vb;
-  });
+  // ソート: 予定 → 未設定 → 済み
+  const order = { '予定':0, null:1, undefined:1, '済み':2 };
+  list.sort((a,b) => (order[statuses[a.id]]??1) - (order[statuses[b.id]]??1));
 
-  const visitedCount = filtered.filter(c => visited[c.id]).length;
+  // カウンター
+  const cnt = { '予定':0, '済み':0, 'なし':0 };
+  allData.forEach(c => { const s=statuses[c.id]; if(s) cnt[s]=(cnt[s]||0)+1; });
   document.getElementById('counter').textContent =
-    `${filtered.length}件表示 (訪問済: ${visitedCount}件)`;
+    `${list.length}件 | 予定:${cnt['予定']} 済:${cnt['済み']} なし:${cnt['なし']}`;
 
-  const listEl = document.getElementById('list');
+  const listEl  = document.getElementById('list');
   const emptyEl = document.getElementById('empty');
 
-  if (filtered.length === 0) {
-    listEl.innerHTML = '';
-    emptyEl.classList.remove('hidden');
-    return;
-  }
+  if (!list.length) { listEl.innerHTML=''; emptyEl.classList.remove('hidden'); return; }
   emptyEl.classList.add('hidden');
 
-  listEl.innerHTML = filtered.map(c => {
-    const isVisited = !!visited[c.id];
+  listEl.innerHTML = list.map(c => {
+    const st   = statuses[c.id] || null;
     const memo = memos[c.id] || {};
-    const badgeClass = 'badge-' + c.sibu;
 
-    const memoTags = [
-      memo.has_bukken   ? '<span class="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-xs">物件あり</span>' : '',
-      memo.needs_followup ? '<span class="bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full text-xs">要フォロー</span>' : '',
-      memo.person ? `<span class="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full text-xs">👤 ${escHtml(memo.person)}</span>` : '',
+    // ステータスボタン表示
+    const stBtn = st
+      ? `<button onclick="openPopup(event,'${c.id}')"
+           class="flex-shrink-0 px-2.5 py-1 rounded-full text-xs font-bold sbadge-${st} border border-current/20">
+           ${{予定:'📋 予定', 済み:'✅ 済み', なし:'🚫 なし'}[st]}
+         </button>`
+      : `<button onclick="openPopup(event,'${c.id}')"
+           class="flex-shrink-0 w-9 h-9 rounded-full border-2 border-dashed border-slate-300 text-slate-300 flex items-center justify-center text-lg">
+           ＋
+         </button>`;
+
+    // メモタグ
+    const tags = [
+      memo.has_bukken    ? '<span class="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-xs">物件あり</span>' : '',
+      memo.needs_followup? '<span class="bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full text-xs">要フォロー</span>' : '',
+      memo.person        ? `<span class="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full text-xs">👤 ${escHtml(memo.person)}</span>` : '',
     ].filter(Boolean).join('');
 
     const memoText = memo.text
       ? `<p class="text-xs text-slate-500 mt-1 line-clamp-2">📝 ${escHtml(memo.text)}</p>` : '';
 
     return `
-    <div class="card bg-white rounded-xl shadow-sm overflow-hidden ${isVisited ? 'visited' : ''}" id="card-${c.id}">
+    <div class="card bg-white rounded-xl shadow-sm overflow-hidden ${st?'status-'+st:''}" id="card-${c.id}">
       <div class="p-4">
-        <!-- ヘッダー行 -->
         <div class="flex items-start justify-between gap-2">
           <div class="flex-1 min-w-0">
-            <div class="flex items-center gap-2 mb-0.5">
-              <span class="text-xs px-2 py-0.5 rounded-full font-bold ${badgeClass}">${c.sibu}</span>
-              ${isVisited ? '<span class="text-xs bg-slate-200 text-slate-500 px-2 py-0.5 rounded-full">訪問済</span>' : ''}
+            <div class="flex items-center gap-1.5 mb-0.5 flex-wrap">
+              <span class="text-xs px-2 py-0.5 rounded-full font-bold badge-${c.sibu}">${c.sibu}</span>
             </div>
             <h2 class="company-name font-bold text-base leading-snug">${escHtml(c.name)}</h2>
           </div>
-          <!-- 訪問チェックボタン -->
-          <button onclick="toggleVisited('${c.id}')"
-            class="flex-shrink-0 w-10 h-10 rounded-full border-2 flex items-center justify-center text-lg
-                   ${isVisited ? 'bg-slate-200 border-slate-300 text-slate-400' : 'border-slate-300 text-slate-300'}">
-            ${isVisited ? '✓' : '○'}
-          </button>
+          ${stBtn}
         </div>
-
-        <!-- 基本情報 -->
         <div class="mt-2 space-y-1 text-sm text-slate-600">
           <p>📍 ${escHtml(c.address)}</p>
           ${c.phone ? `<p>📞 ${escHtml(c.phone)}</p>` : ''}
           ${c.takken_no ? `<p class="text-xs text-slate-400">🏛️ ${escHtml(c.takken_no)}</p>` : ''}
         </div>
-
-        <!-- メモタグ -->
-        ${memoTags ? `<div class="flex flex-wrap gap-1 mt-2">${memoTags}</div>` : ''}
+        ${tags ? `<div class="flex flex-wrap gap-1 mt-2">${tags}</div>` : ''}
         ${memoText}
       </div>
 
-      <!-- アクションボタン -->
       <div class="grid grid-cols-3 border-t border-slate-100">
-        ${c.phone ? `
-        <button onclick="callPhone('${escHtml(c.phone)}')"
-          class="btn-call text-white py-3 text-sm font-bold flex items-center justify-center gap-1">
-          📞 電話
-        </button>` : `<div class="bg-slate-100 py-3"></div>`}
-
-        <button onclick="openNav('${escHtml(c.address)}')"
-          class="btn-nav text-white py-3 text-sm font-bold flex items-center justify-center gap-1">
-          🗺️ ナビ
-        </button>
-
-        <button onclick="openMemo('${c.id}', '${escHtml(c.name)}')"
-          class="btn-info text-white py-3 text-sm font-bold flex items-center justify-center gap-1">
-          ✏️ メモ
-        </button>
+        ${c.phone
+          ? `<button onclick="callPhone('${escHtml(c.phone)}')" class="btn-call text-white py-3 text-sm font-bold flex items-center justify-center">📞 電話</button>`
+          : `<div class="bg-slate-50 py-3"></div>`}
+        <button onclick="openNav('${escHtml(c.address)}')" class="btn-nav text-white py-3 text-sm font-bold flex items-center justify-center">🗺️ ナビ</button>
+        <button onclick="openMemo('${c.id}','${escHtml(c.name)}')" class="btn-info text-white py-3 text-sm font-bold flex items-center justify-center">✏️ メモ</button>
       </div>
 
-      <!-- 詳細（HP・代表者名） -->
-      ${(c.hp || c.representative) ? `
+      ${(c.hp||c.representative) ? `
       <div class="px-4 pb-3 pt-1 text-xs text-slate-500 space-y-0.5 border-t border-slate-50">
         ${c.representative ? `<p>代表: ${escHtml(c.representative)}</p>` : ''}
         ${c.hp ? `<p><a href="${escHtml(c.hp)}" target="_blank" class="text-blue-500 underline break-all">${escHtml(c.hp)}</a></p>` : ''}
@@ -271,28 +297,41 @@ function renderList() {
   }).join('');
 }
 
-// ===== アクション =====
-function callPhone(phone) {
-  const num = phone.replace(/[^0-9+]/g, '');
-  window.location.href = 'tel:' + num;
+// ===== ステータスポップアップ =====
+function openPopup(e, id) {
+  e.stopPropagation();
+  currentPopupId = id;
+  const popup = document.getElementById('status-popup');
+  const rect  = e.currentTarget.getBoundingClientRect();
+  popup.style.top  = (rect.bottom + window.scrollY + 6) + 'px';
+  // 画面右端に収まるよう調整
+  const left = Math.min(rect.left, window.innerWidth - 180);
+  popup.style.left = left + 'px';
+  popup.classList.add('open');
+  document.getElementById('popup-overlay').classList.remove('hidden');
 }
-
-function openNav(address) {
-  const query = encodeURIComponent(address);
-  window.open(`https://maps.google.com/?q=${query}&dirflg=d`, '_blank');
+function closePopup() {
+  document.getElementById('status-popup').classList.remove('open');
+  document.getElementById('popup-overlay').classList.add('hidden');
+  currentPopupId = null;
 }
-
-function toggleVisited(id) {
-  const visited = getVisited();
-  visited[id] = !visited[id];
-  if (!visited[id]) delete visited[id];
-  saveVisited(visited);
+function setStatus(st) {
+  if (!currentPopupId) return;
+  const statuses = getStatuses();
+  if (st === null) delete statuses[currentPopupId];
+  else statuses[currentPopupId] = st;
+  saveStatuses(statuses);
+  closePopup();
   renderList();
 }
 
+// ===== アクション =====
+function callPhone(phone) { window.location.href = 'tel:' + phone.replace(/[^0-9+]/g,''); }
+function openNav(address)  { window.open('https://maps.google.com/?q='+encodeURIComponent(address)+'&dirflg=d','_blank'); }
+
 function confirmReset() {
-  if (confirm('訪問記録とメモを全てリセットしますか？\nこの操作は元に戻せません。')) {
-    localStorage.removeItem(LS_VISITED);
+  if (confirm('全ての訪問ステータス・メモをリセットしますか？\nこの操作は元に戻せません。')) {
+    localStorage.removeItem(LS_STATUS);
     localStorage.removeItem(LS_MEMOS);
     renderList();
   }
@@ -301,27 +340,24 @@ function confirmReset() {
 // ===== メモ =====
 function openMemo(id, name) {
   currentMemoId = id;
-  const memos = getMemos();
-  const m = memos[id] || {};
+  const m = getMemos()[id] || {};
   document.getElementById('memo-title').textContent = name;
-  document.getElementById('memo-has-bukken').checked = !!m.has_bukken;
-  document.getElementById('memo-needs-followup').checked = !!m.needs_followup;
-  document.getElementById('memo-person').value = m.person || '';
-  document.getElementById('memo-text').value = m.text || '';
+  document.getElementById('memo-has-bukken').checked    = !!m.has_bukken;
+  document.getElementById('memo-needs-followup').checked= !!m.needs_followup;
+  document.getElementById('memo-person').value = m.person||'';
+  document.getElementById('memo-text').value   = m.text||'';
   document.getElementById('memo-modal').classList.add('open');
-  setTimeout(() => document.getElementById('memo-person').focus(), 100);
+  setTimeout(()=>document.getElementById('memo-person').focus(), 100);
 }
-
 function closeMemo() {
   document.getElementById('memo-modal').classList.remove('open');
   currentMemoId = null;
 }
-
 function saveMemo() {
   if (!currentMemoId) return;
   const memos = getMemos();
   memos[currentMemoId] = {
-    has_bukken:    document.getElementById('memo-has-bukken').checked,
+    has_bukken:     document.getElementById('memo-has-bukken').checked,
     needs_followup: document.getElementById('memo-needs-followup').checked,
     person: document.getElementById('memo-person').value.trim(),
     text:   document.getElementById('memo-text').value.trim(),
@@ -330,18 +366,11 @@ function saveMemo() {
   closeMemo();
   renderList();
 }
-
-// モーダル外タップで閉じる
-document.getElementById('memo-modal').addEventListener('click', function(e) {
-  if (e.target === this) closeMemo();
-});
+document.getElementById('memo-modal').addEventListener('click', function(e){ if(e.target===this) closeMemo(); });
 
 // ===== ユーティリティ =====
-function escHtml(str) {
-  return (str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-}
+function escHtml(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 
-// ===== 起動 =====
 loadData();
 </script>
 </body>
