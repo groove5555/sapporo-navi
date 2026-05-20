@@ -275,6 +275,7 @@ function renderList() {
           <p>📍 ${escHtml(c.address)}</p>
           ${c.phone ? `<p>📞 ${escHtml(c.phone)}</p>` : ''}
           ${c.takken_no ? `<p class="text-xs text-slate-400">🏛️ ${escHtml(c.takken_no)}</p>` : ''}
+          ${c.representative ? `<p class="text-xs text-slate-400">👤 代表: ${escHtml(c.representative)}</p>` : ''}
         </div>
         ${tags ? `<div class="flex flex-wrap gap-1 mt-2">${tags}</div>` : ''}
         ${memoText}
@@ -288,10 +289,9 @@ function renderList() {
         <button onclick="openMemo('${c.id}','${escHtml(c.name)}')" class="btn-info text-white py-3 text-sm font-bold flex items-center justify-center">✏️ メモ</button>
       </div>
 
-      ${(c.hp||c.representative) ? `
-      <div class="px-4 pb-3 pt-1 text-xs text-slate-500 space-y-0.5 border-t border-slate-50">
-        ${c.representative ? `<p>代表: ${escHtml(c.representative)}</p>` : ''}
-        ${c.hp ? `<p><a href="${escHtml(c.hp)}" target="_blank" class="text-blue-500 underline break-all">${escHtml(c.hp)}</a></p>` : ''}
+      ${c.hp ? `
+      <div class="px-4 pb-3 pt-1 text-xs border-t border-slate-50">
+        <p><a href="${escHtml(c.hp)}" target="_blank" class="text-blue-500 underline break-all">${escHtml(c.hp)}</a></p>
       </div>` : ''}
     </div>`;
   }).join('');
