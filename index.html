@@ -19,8 +19,11 @@
     }
     .card.visited .company-name { text-decoration: line-through; color: #94a3b8; }
 
-    .badge-kita  { background: #dbeafe; color: #1d4ed8; }
-    .badge-higashi { background: #dcfce7; color: #15803d; }
+    .badge-中央支部 { background: #f3e8ff; color: #7e22ce; }
+    .badge-東支部   { background: #dcfce7; color: #15803d; }
+    .badge-西支部   { background: #fef9c3; color: #854d0e; }
+    .badge-南支部   { background: #ffedd5; color: #c2410c; }
+    .badge-北支部   { background: #dbeafe; color: #1d4ed8; }
 
     #memo-modal { display: none; }
     #memo-modal.open { display: flex; }
@@ -45,9 +48,12 @@
   <div class="max-w-lg mx-auto px-4 py-3">
     <div class="flex items-center justify-between">
       <h1 class="text-lg font-bold tracking-wide">🏢 札幌業者ナビ</h1>
-      <div class="flex gap-2">
-        <button onclick="toggleFilter('kita')"   id="btn-kita"   class="px-2 py-1 rounded text-xs font-bold bg-blue-200 text-blue-800">北</button>
-        <button onclick="toggleFilter('higashi')" id="btn-higashi" class="px-2 py-1 rounded text-xs font-bold bg-green-200 text-green-800">東</button>
+      <div class="flex gap-1 flex-wrap">
+        <button onclick="toggleFilter('中央支部')" id="btn-中央支部" class="px-2 py-1 rounded text-xs font-bold bg-purple-200 text-purple-800">中央</button>
+        <button onclick="toggleFilter('東支部')"   id="btn-東支部"   class="px-2 py-1 rounded text-xs font-bold bg-green-200 text-green-800">東</button>
+        <button onclick="toggleFilter('西支部')"   id="btn-西支部"   class="px-2 py-1 rounded text-xs font-bold bg-yellow-200 text-yellow-800">西</button>
+        <button onclick="toggleFilter('南支部')"   id="btn-南支部"   class="px-2 py-1 rounded text-xs font-bold bg-orange-200 text-orange-800">南</button>
+        <button onclick="toggleFilter('北支部')"   id="btn-北支部"   class="px-2 py-1 rounded text-xs font-bold bg-blue-200 text-blue-800">北</button>
         <button onclick="confirmReset()" class="px-2 py-1 rounded text-xs font-bold bg-red-200 text-red-800">リセット</button>
       </div>
     </div>
@@ -111,7 +117,7 @@
 <script>
 // ===== データ管理 =====
 let allData = [];
-let filters = { kita: true, higashi: true };
+let filters = { '中央支部': true, '東支部': true, '西支部': true, '南支部': true, '北支部': true };
 let currentMemoId = null;
 
 // LocalStorageキー
@@ -152,7 +158,7 @@ async function loadData() {
 function toggleFilter(sibu) {
   filters[sibu] = !filters[sibu];
   const btn = document.getElementById('btn-' + sibu);
-  btn.style.opacity = filters[sibu] ? '1' : '0.4';
+  if (btn) btn.style.opacity = filters[sibu] ? '1' : '0.4';
   renderList();
 }
 
@@ -163,8 +169,7 @@ function renderList() {
   const memos   = getMemos();
 
   const filtered = allData.filter(c => {
-    const sibuKey = c.sibu === '北支部' ? 'kita' : 'higashi';
-    if (!filters[sibuKey]) return false;
+    if (!filters[c.sibu]) return false;
     if (!q) return true;
     return [c.name, c.address, c.takken_no, c.phone, c.representative]
       .some(v => (v || '').toLowerCase().includes(q));
@@ -194,8 +199,7 @@ function renderList() {
   listEl.innerHTML = filtered.map(c => {
     const isVisited = !!visited[c.id];
     const memo = memos[c.id] || {};
-    const sibuKey = c.sibu === '北支部' ? 'kita' : 'higashi';
-    const badgeClass = sibuKey === 'kita' ? 'badge-kita' : 'badge-higashi';
+    const badgeClass = 'badge-' + c.sibu;
 
     const memoTags = [
       memo.has_bukken   ? '<span class="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-xs">物件あり</span>' : '',

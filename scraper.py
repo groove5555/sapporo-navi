@@ -16,8 +16,11 @@ import datetime
 MEIBO_URL = "https://takken.basekernel.ne.jp/meibo.php"
 
 SIBU_LIST = [
-    {"name": "北支部", "sibu_cd": "7"},
-    {"name": "東支部", "sibu_cd": "4"},
+    {"name": "中央支部", "sibu_cd": "1"},
+    {"name": "東支部",   "sibu_cd": "4"},
+    {"name": "西支部",   "sibu_cd": "5"},
+    {"name": "南支部",   "sibu_cd": "6"},
+    {"name": "北支部",   "sibu_cd": "7"},
 ]
 
 HEADERS = {
