@@ -126,13 +126,119 @@ def scrape_sibu(sibu_name, sibu_cd):
 
     return all_companies
 
+# ============================================================
+# 全日本不動産協会（全日）スクレイピング
+# 取得先: https://www.zennichi.or.jp/member_search/list (GET)
+# ============================================================
+ZENNICHI_URL = "https://www.zennichi.or.jp/member_search/list"
+ZENNICHI_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15",
+}
+
+def _clean(s):
+    return re.sub(r'\s+', ' ', s).strip()
+
+def parse_zennichi_page(html):
+    soup = BeautifulSoup(html, "html.parser")
+    rows = [tr for tr in soup.select('.member-result-table tr') if tr.find_all('td')]
+    companies = []
+    for tr in rows:
+        tds = tr.find_all('td')
+        if len(tds) < 3:
+            continue
+        # 免許番号
+        lic = _clean(tds[0].get_text(' ')).replace('免許番号', '').strip()
+        m = re.search(r'(\S+\(\d+\))\s*(\d+)', lic)
+        takken = (m.group(1) + m.group(2)) if m else lic
+        # 商号 / 代表者
+        c1 = tds[1].get_text('\n', strip=True)
+        name = _clean(c1.split('代表者')[0])
+        rep = ''
+        mr = re.search(r'代表者[:：]?\s*(.+)', c1)
+        if mr:
+            rep = _clean(mr.group(1))
+        # ヘッダー行スキップ
+        if not name or '商号' in name:
+            continue
+        # 所在地 / 電話 / HP
+        c2 = tds[2].get_text('\n', strip=True)
+        zip_m = re.search(r'〒?\s*(\d{3}-?\d{4})', c2)
+        zipc = zip_m.group(1) if zip_m else ''
+        tel_m = re.search(r'(0\d{1,3}-\d{1,4}-\d{3,4})', c2)
+        phone = tel_m.group(1) if tel_m else ''
+        addr = c2
+        if zipc:
+            addr = addr.split(zipc, 1)[-1]
+        addr = _clean(re.split(r'TEL', addr)[0]).lstrip('　 ')
+        hp = ''
+        for a in tds[2].find_all('a', href=True):
+            if a['href'].startswith('http') and 'zennichi' not in a['href']:
+                hp = a['href']
+                break
+        companies.append({
+            "id": "", "sibu": "全日", "takken_no": takken, "name": name,
+            "representative": rep, "zip": zipc, "address": addr,
+            "phone": phone, "hp": hp,
+        })
+    return companies
+
+def get_zennichi_total_pages(html):
+    soup = BeautifulSoup(html, "html.parser")
+    maxp = 1
+    for a in soup.find_all('a', href=True):
+        m = re.search(r'pages=(\d+)', a['href'])
+        if m:
+            maxp = max(maxp, int(m.group(1)))
+    return maxp
+
+def scrape_zennichi():
+    print(f"\n全日（北海道本部・札幌）を取得中...")
+    params = {"prefecture": "01", "region": "01", "address": "札幌", "pages": "1"}
+    try:
+        res = requests.get(ZENNICHI_URL, params=params, headers=ZENNICHI_HEADERS, timeout=25)
+        res.encoding = res.apparent_encoding
+    except Exception as e:
+        print(f"  エラー: {e}")
+        return []
+
+    total_pages = get_zennichi_total_pages(res.text)
+    print(f"  総ページ数: {total_pages}")
+
+    all_companies = parse_zennichi_page(res.text)
+    print(f"  1ページ目: {len(all_companies)}件")
+
+    for page in range(2, total_pages + 1):
+        time.sleep(1.0)
+        params["pages"] = str(page)
+        try:
+            res = requests.get(ZENNICHI_URL, params=params, headers=ZENNICHI_HEADERS, timeout=25)
+            res.encoding = res.apparent_encoding
+        except Exception as e:
+            print(f"  {page}ページ目: 取得失敗 {e}")
+            break
+        companies = parse_zennichi_page(res.text)
+        all_companies.extend(companies)
+        if page % 10 == 0 or page == total_pages:
+            print(f"  {page}/{total_pages}ページ (累計: {len(all_companies)}件)")
+
+    return all_companies
+
 def main():
-    print("=== 宅建協会 業者データ スクレイピング開始 ===")
+    print("=== 業者データ スクレイピング開始 ===")
     all_data = []
 
+    # --- 宅建協会（5支部） ---
     for s in SIBU_LIST:
         companies = scrape_sibu(s["name"], s["sibu_cd"])
+        for c in companies:
+            c["source"] = "宅建協会"
         all_data.extend(companies)
+
+    # --- 全日 ---
+    zennichi = scrape_zennichi()
+    for c in zennichi:
+        c["source"] = "全日"
+    all_data.extend(zennichi)
 
     # IDを振り直す
     for i, c in enumerate(all_data):

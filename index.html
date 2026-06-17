@@ -34,6 +34,7 @@
     .dot-西支部   { background:#eab308; }
     .dot-南支部   { background:#f97316; }
     .dot-北支部   { background:#3b82f6; }
+    .dot-全日     { background:#ef4444; }
 
     /* ===== 検索バー ===== */
     .search-box {
@@ -57,6 +58,11 @@
     .badge-西支部   { background:#fef9c3; color:#854d0e; }
     .badge-南支部   { background:#ffedd5; color:#c2410c; }
     .badge-北支部   { background:#dbeafe; color:#1d4ed8; }
+    .badge-全日     { background:#fee2e2; color:#b91c1c; }
+
+    /* ===== 団体バッジ ===== */
+    .org-宅建協会 { background:#0f172a; color:#fff; }
+    .org-全日     { background:#b91c1c; color:#fff; }
 
     /* ===== ステータスバッジ ===== */
     .sbadge-予定 { background:#dbeafe; color:#1d4ed8; }
@@ -137,6 +143,7 @@
       <button onclick="toggleSibu('西支部')"   id="btn-西支部"   class="chip"><span class="dot dot-西支部"></span>西</button>
       <button onclick="toggleSibu('南支部')"   id="btn-南支部"   class="chip"><span class="dot dot-南支部"></span>南</button>
       <button onclick="toggleSibu('北支部')"   id="btn-北支部"   class="chip"><span class="dot dot-北支部"></span>北</button>
+      <button onclick="toggleSibu('全日')"     id="btn-全日"     class="chip"><span class="dot dot-全日"></span>全日</button>
     </div>
 
     <!-- 検索 -->
@@ -270,7 +277,7 @@
 <script>
 // ===== 状態 =====
 let allData = [];
-let sibuFilters = { '中央支部':true, '東支部':true, '西支部':true, '南支部':true, '北支部':true };
+let sibuFilters = { '中央支部':true, '東支部':true, '西支部':true, '南支部':true, '北支部':true, '全日':true };
 let currentTab  = '全て';   // '全て' | '予定' | '済み' | 'なし'
 let currentMemoId  = null;
 let currentPopupId = null;
@@ -415,7 +422,8 @@ function renderList() {
         <div class="flex items-start justify-between gap-2">
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-1.5 mb-0.5 flex-wrap">
-              <span class="text-xs px-2 py-0.5 rounded-full font-bold badge-${c.sibu}">${c.sibu}</span>
+              <span class="text-xs px-2 py-0.5 rounded-full font-bold org-${c.source||'宅建協会'}">${c.source||'宅建協会'}</span>
+              ${(c.source!=='全日') ? `<span class="text-xs px-2 py-0.5 rounded-full font-bold badge-${c.sibu}">${c.sibu}</span>` : ''}
             </div>
             <h2 class="company-name font-bold text-base leading-snug">${escHtml(c.name)}</h2>
           </div>
