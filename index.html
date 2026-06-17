@@ -10,8 +10,38 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     * { -webkit-tap-highlight-color: transparent; }
-    body { overscroll-behavior: none; }
+    body { overscroll-behavior: none; background:#f1f5f9; }
     ::-webkit-scrollbar { display: none; }
+
+    /* ===== ヘッダー（ダークネイビー） ===== */
+    .app-header {
+      background: linear-gradient(160deg, #1e293b 0%, #0f172a 100%);
+    }
+    .header-title { letter-spacing: 0.02em; }
+
+    /* ===== 支部チップ（控えめ） ===== */
+    .chip {
+      display:flex; align-items:center; gap:5px;
+      padding:5px 11px; border-radius:9999px; font-size:12px; font-weight:600;
+      background: rgba(255,255,255,0.08); color:#cbd5e1;
+      border:1px solid rgba(255,255,255,0.12); transition:all 0.15s;
+    }
+    .chip .dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+    .chip.off { opacity:0.4; }
+    .chip.off .dot { background:#64748b !important; }
+    .dot-中央支部 { background:#a855f7; }
+    .dot-東支部   { background:#22c55e; }
+    .dot-西支部   { background:#eab308; }
+    .dot-南支部   { background:#f97316; }
+    .dot-北支部   { background:#3b82f6; }
+
+    /* ===== 検索バー ===== */
+    .search-box {
+      background: rgba(255,255,255,0.1); color:#fff;
+      border:1px solid rgba(255,255,255,0.14);
+    }
+    .search-box::placeholder { color:#94a3b8; }
+    .search-box:focus { background: rgba(255,255,255,0.16); border-color:rgba(255,255,255,0.3); }
 
     /* ===== カードステータス ===== */
     .card { transition: opacity 0.15s; border-left: 4px solid transparent; }
@@ -34,9 +64,9 @@
     .sbadge-なし { background:#f1f5f9; color:#94a3b8; }
 
     /* ===== タブ ===== */
-    .tab-btn { flex:1; padding:8px 4px; font-size:12px; font-weight:700;
-               border-bottom:3px solid transparent; color:#94a3b8; transition:all 0.15s; }
-    .tab-btn.active { color:#dc2626; border-bottom-color:#dc2626; }
+    .tab-btn { flex:1; padding:11px 4px; font-size:12px; font-weight:700;
+               border-bottom:2.5px solid transparent; color:#94a3b8; transition:all 0.15s; }
+    .tab-btn.active { color:#0f172a; border-bottom-color:#0f172a; }
 
     /* ===== ステータスポップアップ ===== */
     #status-popup { display:none; position:fixed; z-index:60;
@@ -52,51 +82,135 @@
     #memo-modal { display:none; }
     #memo-modal.open { display:flex; }
 
-    /* ===== ボタン ===== */
-    .btn-call { background:#16a34a; } .btn-call:active { background:#15803d; }
-    .btn-nav  { background:#dc2626; } .btn-nav:active  { background:#b91c1c; }
-    .btn-info { background:#2563eb; } .btn-info:active { background:#1d4ed8; }
+    /* ===== ドロワーメニュー ===== */
+    #drawer-overlay { display:none; position:fixed; inset:0; z-index:70;
+                      background:rgba(15,23,42,0.5); backdrop-filter:blur(2px); }
+    #drawer-overlay.open { display:block; }
+    #drawer {
+      position:fixed; top:0; right:0; bottom:0; z-index:80; width:82%; max-width:340px;
+      background:#fff; box-shadow:-8px 0 32px rgba(0,0,0,0.2);
+      transform:translateX(100%); transition:transform 0.25s ease;
+      display:flex; flex-direction:column;
+    }
+    #drawer.open { transform:translateX(0); }
+    .drawer-head { background: linear-gradient(160deg, #1e293b 0%, #0f172a 100%); color:#fff; padding:22px 20px 18px; }
+    .menu-item { display:flex; align-items:center; gap:14px; padding:15px 20px;
+                 border-bottom:1px solid #f1f5f9; font-size:15px; font-weight:600; color:#1e293b; }
+    .menu-item:active { background:#f8fafc; }
+    .menu-item .mi-icon { width:38px; height:38px; border-radius:10px; display:flex;
+                          align-items:center; justify-content:center; font-size:18px; flex-shrink:0; }
+    .menu-item .mi-sub { font-size:11px; font-weight:500; color:#94a3b8; margin-top:1px; }
+
+    /* ===== ボタン（落ち着いた配色） ===== */
+    .btn-call { background:#059669; } .btn-call:active { background:#047857; }
+    .btn-nav  { background:#475569; } .btn-nav:active  { background:#334155; }
+    .btn-info { background:#1e293b; } .btn-info:active { background:#0f172a; }
   </style>
 </head>
 <body class="bg-slate-100 text-slate-800 font-sans select-none">
 
 <!-- ===== ヘッダー ===== -->
-<div class="bg-red-700 text-white sticky top-0 z-30 shadow-xl">
-  <div class="max-w-lg mx-auto px-4 pt-3 pb-2">
+<div class="app-header text-white sticky top-0 z-30 shadow-xl">
+  <div class="max-w-lg mx-auto px-4 pt-3 pb-3">
 
     <!-- タイトル行 -->
-    <div class="flex items-center justify-between mb-2">
-      <h1 class="text-lg font-bold tracking-wide">🏢 札幌業者ナビ</h1>
-      <button onclick="confirmReset()" class="px-2 py-1 rounded text-xs font-bold bg-red-200 text-red-800">リセット</button>
+    <div class="flex items-center justify-between mb-3">
+      <div class="flex items-center gap-2">
+        <span class="text-xl">🏢</span>
+        <div>
+          <h1 class="header-title text-base font-bold leading-tight">札幌業者ナビ</h1>
+          <p class="text-[10px] text-slate-400 leading-tight" id="updated">読み込み中...</p>
+        </div>
+      </div>
+      <button onclick="openDrawer()" aria-label="メニュー"
+        class="w-9 h-9 flex items-center justify-center rounded-lg active:bg-white/10">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+        </svg>
+      </button>
     </div>
 
     <!-- 支部フィルター -->
-    <div class="flex gap-1 mb-2">
-      <button onclick="toggleSibu('中央支部')" id="btn-中央支部" class="px-2 py-1 rounded text-xs font-bold bg-purple-200 text-purple-800">中央</button>
-      <button onclick="toggleSibu('東支部')"   id="btn-東支部"   class="px-2 py-1 rounded text-xs font-bold bg-green-200  text-green-800">東</button>
-      <button onclick="toggleSibu('西支部')"   id="btn-西支部"   class="px-2 py-1 rounded text-xs font-bold bg-yellow-200 text-yellow-800">西</button>
-      <button onclick="toggleSibu('南支部')"   id="btn-南支部"   class="px-2 py-1 rounded text-xs font-bold bg-orange-200 text-orange-800">南</button>
-      <button onclick="toggleSibu('北支部')"   id="btn-北支部"   class="px-2 py-1 rounded text-xs font-bold bg-blue-200   text-blue-800">北</button>
+    <div class="flex gap-1.5 mb-2.5 overflow-x-auto">
+      <button onclick="toggleSibu('中央支部')" id="btn-中央支部" class="chip"><span class="dot dot-中央支部"></span>中央</button>
+      <button onclick="toggleSibu('東支部')"   id="btn-東支部"   class="chip"><span class="dot dot-東支部"></span>東</button>
+      <button onclick="toggleSibu('西支部')"   id="btn-西支部"   class="chip"><span class="dot dot-西支部"></span>西</button>
+      <button onclick="toggleSibu('南支部')"   id="btn-南支部"   class="chip"><span class="dot dot-南支部"></span>南</button>
+      <button onclick="toggleSibu('北支部')"   id="btn-北支部"   class="chip"><span class="dot dot-北支部"></span>北</button>
     </div>
 
     <!-- 検索 -->
-    <input type="search" id="search" placeholder="社名・住所・宅建番号で検索..."
-      autocomplete="off" oninput="renderList()"
-      class="w-full px-3 py-2 rounded-lg text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-red-300">
+    <div class="relative">
+      <svg class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      </svg>
+      <input type="search" id="search" placeholder="社名・住所・宅建番号で検索"
+        autocomplete="off" oninput="renderList()"
+        class="search-box w-full pl-9 pr-3 py-2.5 rounded-xl text-sm focus:outline-none">
+    </div>
 
     <!-- カウンター -->
-    <div class="flex justify-between mt-1.5 text-xs text-red-200">
-      <span id="counter">読み込み中...</span>
-      <span id="updated"></span>
-    </div>
+    <div class="mt-2 text-xs text-slate-400" id="counter">　</div>
   </div>
 
   <!-- ===== ステータスタブ ===== -->
-  <div class="flex bg-white border-t border-slate-100 max-w-lg mx-auto">
+  <div class="flex bg-white max-w-lg mx-auto">
     <button class="tab-btn active" id="tab-全て"   onclick="switchTab('全て')">全て</button>
     <button class="tab-btn"        id="tab-予定"   onclick="switchTab('予定')">📋 訪問予定</button>
     <button class="tab-btn"        id="tab-済み"   onclick="switchTab('済み')">✅ 訪問済み</button>
     <button class="tab-btn"        id="tab-なし"   onclick="switchTab('なし')">🚫 訪問しない</button>
+  </div>
+</div>
+
+<!-- ===== ドロワーメニュー ===== -->
+<div id="drawer-overlay" onclick="closeDrawer()"></div>
+<div id="drawer">
+  <div class="drawer-head">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <span class="text-2xl">🏢</span>
+        <div>
+          <p class="font-bold text-base leading-tight">札幌業者ナビ</p>
+          <p class="text-[11px] text-slate-400" id="drawer-stats">　</p>
+        </div>
+      </div>
+      <button onclick="closeDrawer()" class="text-slate-300 text-2xl leading-none w-8 h-8">&times;</button>
+    </div>
+  </div>
+
+  <div class="overflow-y-auto flex-1">
+    <button class="menu-item w-full text-left" onclick="closeDrawer();switchTab('予定')">
+      <span class="mi-icon" style="background:#dbeafe">📋</span>
+      <div><div>訪問予定の一覧</div><div class="mi-sub" id="mi-yotei">0件</div></div>
+    </button>
+    <button class="menu-item w-full text-left" onclick="closeDrawer();switchTab('済み')">
+      <span class="mi-icon" style="background:#dcfce7">✅</span>
+      <div><div>訪問済みの一覧</div><div class="mi-sub" id="mi-sumi">0件</div></div>
+    </button>
+    <button class="menu-item w-full text-left" onclick="closeDrawer();switchTab('なし')">
+      <span class="mi-icon" style="background:#f1f5f9">🚫</span>
+      <div><div>訪問しない一覧</div><div class="mi-sub" id="mi-nashi">0件</div></div>
+    </button>
+    <button class="menu-item w-full text-left" onclick="closeDrawer();switchTab('全て')">
+      <span class="mi-icon" style="background:#e0e7ff">🗂️</span>
+      <div><div>すべて表示</div><div class="mi-sub" id="mi-all">全件</div></div>
+    </button>
+    <button class="menu-item w-full text-left" onclick="allSibu(true)">
+      <span class="mi-icon" style="background:#f0fdf4">☑️</span>
+      <div><div>全支部を表示</div><div class="mi-sub">5支部すべてON</div></div>
+    </button>
+    <button class="menu-item w-full text-left" onclick="reloadData()">
+      <span class="mi-icon" style="background:#fef9c3">🔄</span>
+      <div><div>データを再読み込み</div><div class="mi-sub" id="mi-updated">最新データを取得</div></div>
+    </button>
+    <button class="menu-item w-full text-left" onclick="closeDrawer();confirmReset()">
+      <span class="mi-icon" style="background:#fee2e2">🗑️</span>
+      <div><div>訪問記録をリセット</div><div class="mi-sub">ステータス・メモを全消去</div></div>
+    </button>
+  </div>
+
+  <div class="px-5 py-4 text-[11px] text-slate-400 border-t border-slate-100">
+    データ更新は毎月1日に自動実行されます
   </div>
 </div>
 
@@ -149,7 +263,7 @@
     <textarea id="memo-text" rows="3" placeholder="訪問内容・物件情報・次回アクション等"
       class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-300"></textarea>
     <button onclick="saveMemo()"
-      class="w-full mt-4 bg-blue-600 text-white font-bold py-3 rounded-xl text-sm active:bg-blue-800">保存する</button>
+      class="w-full mt-4 bg-slate-800 text-white font-bold py-3 rounded-xl text-sm active:bg-slate-900">保存する</button>
   </div>
 </div>
 
@@ -176,11 +290,39 @@ async function loadData() {
     const res  = await fetch('data.json?_='+Date.now());
     const json = await res.json();
     allData = json.companies || [];
-    document.getElementById('updated').textContent = '更新:' + (json.updated||'');
+    const upd = json.updated || '';
+    document.getElementById('updated').textContent = '最終更新 ' + upd;
+    document.getElementById('mi-updated').textContent = '最終更新: ' + upd;
     renderList();
   } catch(e) {
     document.getElementById('counter').textContent = 'data.jsonが見つかりません';
   }
+}
+
+// ===== データ再読み込み（メニューから） =====
+async function reloadData() {
+  document.getElementById('mi-updated').textContent = '読み込み中...';
+  await loadData();
+  closeDrawer();
+}
+
+// ===== ドロワー =====
+function openDrawer() {
+  document.getElementById('drawer').classList.add('open');
+  document.getElementById('drawer-overlay').classList.add('open');
+}
+function closeDrawer() {
+  document.getElementById('drawer').classList.remove('open');
+  document.getElementById('drawer-overlay').classList.remove('open');
+}
+function allSibu(on) {
+  Object.keys(sibuFilters).forEach(s => {
+    sibuFilters[s] = on;
+    const btn = document.getElementById('btn-'+s);
+    if (btn) btn.classList.toggle('off', !on);
+  });
+  renderList();
+  closeDrawer();
 }
 
 // ===== タブ切り替え =====
@@ -195,7 +337,7 @@ function switchTab(tab) {
 function toggleSibu(sibu) {
   sibuFilters[sibu] = !sibuFilters[sibu];
   const btn = document.getElementById('btn-'+sibu);
-  if (btn) btn.style.opacity = sibuFilters[sibu] ? '1' : '0.35';
+  if (btn) btn.classList.toggle('off', !sibuFilters[sibu]);
   renderList();
 }
 
@@ -226,7 +368,15 @@ function renderList() {
   const cnt = { '予定':0, '済み':0, 'なし':0 };
   allData.forEach(c => { const s=statuses[c.id]; if(s) cnt[s]=(cnt[s]||0)+1; });
   document.getElementById('counter').textContent =
-    `${list.length}件 | 予定:${cnt['予定']} 済:${cnt['済み']} なし:${cnt['なし']}`;
+    `${list.length}件を表示中　･　予定 ${cnt['予定']}　済 ${cnt['済み']}　対象外 ${cnt['なし']}`;
+
+  // ドロワー内の件数も更新
+  const setTxt = (id, v) => { const el=document.getElementById(id); if(el) el.textContent=v; };
+  setTxt('mi-yotei', cnt['予定']+'件');
+  setTxt('mi-sumi',  cnt['済み']+'件');
+  setTxt('mi-nashi', cnt['なし']+'件');
+  setTxt('mi-all',   '全'+allData.length+'件');
+  setTxt('drawer-stats', '全'+allData.length+'件 登録');
 
   const listEl  = document.getElementById('list');
   const emptyEl = document.getElementById('empty');
