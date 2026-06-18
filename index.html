@@ -152,7 +152,7 @@
         <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
       </svg>
       <input type="search" id="search" placeholder="社名・住所・宅建番号で検索"
-        autocomplete="off" oninput="renderList()"
+        autocomplete="off" oninput="debouncedRender()"
         class="search-box w-full pl-9 pr-3 py-2.5 rounded-xl text-sm focus:outline-none">
     </div>
 
@@ -332,6 +332,13 @@ function allSibu(on) {
   closeDrawer();
 }
 
+// ===== 検索デバウンス =====
+let _debTimer = null;
+function debouncedRender() {
+  clearTimeout(_debTimer);
+  _debTimer = setTimeout(renderList, 180);
+}
+
 // ===== タブ切り替え =====
 function switchTab(tab) {
   currentTab = tab;
@@ -388,10 +395,50 @@ function renderList() {
   const listEl  = document.getElementById('list');
   const emptyEl = document.getElementById('empty');
 
+  // 分割描画の状態を保存
+  _list = list; _shown = 0; _statuses = statuses; _memos = memos;
+
   if (!list.length) { listEl.innerHTML=''; emptyEl.classList.remove('hidden'); return; }
   emptyEl.classList.add('hidden');
 
-  listEl.innerHTML = list.map(c => {
+  listEl.innerHTML = '';
+  renderMore();
+}
+
+// ===== 分割描画（スクロールで追加読み込み） =====
+let _list = [], _shown = 0, _statuses = {}, _memos = {};
+const PAGE_SIZE = 40;
+
+function renderMore() {
+  const listEl = document.getElementById('list');
+  const slice = _list.slice(_shown, _shown + PAGE_SIZE);
+  if (!slice.length) return;
+  const html = slice.map(c => cardHtml(c, _statuses, _memos)).join('');
+  // sentinelの前に挿入
+  const sentinel = document.getElementById('scroll-sentinel');
+  if (sentinel) sentinel.insertAdjacentHTML('beforebegin', html);
+  else listEl.insertAdjacentHTML('beforeend', html);
+  _shown += slice.length;
+  ensureSentinel();
+}
+
+function ensureSentinel() {
+  const listEl = document.getElementById('list');
+  let sentinel = document.getElementById('scroll-sentinel');
+  if (_shown >= _list.length) { if (sentinel) sentinel.remove(); return; }
+  if (!sentinel) {
+    listEl.insertAdjacentHTML('beforeend', '<div id="scroll-sentinel" style="height:1px"></div>');
+    sentinel = document.getElementById('scroll-sentinel');
+    _io.observe(sentinel);
+  }
+}
+
+const _io = new IntersectionObserver((entries) => {
+  if (entries.some(e => e.isIntersecting)) renderMore();
+}, { rootMargin: '600px' });
+
+// ===== カードHTML生成 =====
+function cardHtml(c, statuses, memos) {
     const st   = statuses[c.id] || null;
     const memo = memos[c.id] || {};
 
@@ -452,7 +499,6 @@ function renderList() {
         <p><a href="${escHtml(c.hp)}" target="_blank" class="text-blue-500 underline break-all">${escHtml(c.hp)}</a></p>
       </div>` : ''}
     </div>`;
-  }).join('');
 }
 
 // ===== ステータスポップアップ =====
@@ -461,11 +507,17 @@ function openPopup(e, id) {
   currentPopupId = id;
   const popup = document.getElementById('status-popup');
   const rect  = e.currentTarget.getBoundingClientRect();
-  popup.style.top  = (rect.bottom + window.scrollY + 6) + 'px';
-  // 画面右端に収まるよう調整
+  // position:fixed はビューポート基準なので scrollY は足さない
+  popup.classList.add('open'); // 先に表示してサイズを取得
+  const ph = popup.offsetHeight || 200;
+  let top = rect.bottom + 6;
+  // 画面下にはみ出す場合はボタンの上側に表示
+  if (top + ph > window.innerHeight - 8) {
+    top = Math.max(8, rect.top - ph - 6);
+  }
   const left = Math.min(rect.left, window.innerWidth - 180);
+  popup.style.top  = top + 'px';
   popup.style.left = left + 'px';
-  popup.classList.add('open');
   document.getElementById('popup-overlay').classList.remove('hidden');
 }
 function closePopup() {
