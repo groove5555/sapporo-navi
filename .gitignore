@@ -1,0 +1,4 @@
+.claude/
+node_modules/
+auto_update.log
+launchd_*.log

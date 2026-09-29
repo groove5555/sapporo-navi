@@ -12,6 +12,9 @@ import json
 import time
 import re
 import datetime
+import hashlib
+import sys
+import unicodedata
 
 MEIBO_URL = "https://takken.basekernel.ne.jp/meibo.php"
 
@@ -27,6 +30,42 @@ HEADERS = {
     "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15",
     "Content-Type": "application/x-www-form-urlencoded",
 }
+
+# ============================================================
+# 共通ユーティリティ
+# ============================================================
+def _norm(s):
+    """全角/半角・空白の違いを吸収した比較用文字列"""
+    return re.sub(r"\s", "", unicodedata.normalize("NFKC", s or ""))
+
+def is_header_row(first, name):
+    f, n = _norm(first), _norm(name)
+    if not f:
+        return True
+    if f.startswith("免許") or f.startswith("宅建番号"):
+        return True
+    if "商号" in n and "名称" in n:
+        return True
+    return False
+
+def stable_id(c):
+    """データを更新しても変わらないID（団体＋宅建番号＋商号から生成）。
+    同じ宅建番号の支店もあるため商号も含める。"""
+    key = "|".join([c.get("source", ""), _norm(c["takken_no"]), _norm(c["name"])])
+    return hashlib.sha1(key.encode("utf-8")).hexdigest()[:12]
+
+def finalize(all_data):
+    """ヘッダー行の除去・固定IDの付与・重複除去"""
+    out, seen = [], set()
+    for c in all_data:
+        if is_header_row(c.get("takken_no", ""), c.get("name", "")):
+            continue
+        c["id"] = stable_id(c)
+        if c["id"] in seen:
+            continue
+        seen.add(c["id"])
+        out.append(c)
+    return out
 
 def fetch_page(sibu_cd, page=1):
     data = {
@@ -62,8 +101,8 @@ def parse_page(html, sibu_name):
 
         texts = [c.get_text(strip=True) for c in cols]
 
-        # ヘッダー行スキップ
-        if not texts[0] or "宅建番号" in texts[0] or "宅建" in texts[0][:4]:
+        # ヘッダー行スキップ（「免許番号免許年月日」「商　号 ・ 名　称」など）
+        if is_header_row(texts[0], texts[1] if len(texts) > 1 else ""):
             continue
 
         # HP URLを抽出
@@ -240,18 +279,28 @@ def main():
         c["source"] = "全日"
     all_data.extend(zennichi)
 
-    # IDを振り直す
-    for i, c in enumerate(all_data):
-        c["id"] = str(i + 1)
+    all_data = finalize(all_data)
 
+    # 取得に失敗して件数が激減した場合は上書きしない（サイト障害・仕様変更対策）
+    try:
+        with open("data.json", encoding="utf-8") as f:
+            prev_total = json.load(f).get("total", 0)
+    except Exception:
+        prev_total = 0
+    if prev_total and len(all_data) < prev_total * 0.8:
+        print(f"\n取得件数 {len(all_data)} 件が前回 {prev_total} 件より大きく減ったため、data.json を更新しません。")
+        sys.exit(1)
+
+    jst = datetime.timezone(datetime.timedelta(hours=9))
     output = {
-        "updated": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "updated": datetime.datetime.now(jst).strftime("%Y-%m-%d %H:%M"),
         "total": len(all_data),
         "companies": all_data
     }
 
+    # 改行・インデントなしで保存（ファイルサイズ削減）
     with open("data.json", "w", encoding="utf-8") as f:
-        json.dump(output, f, ensure_ascii=False, indent=2)
+        json.dump(output, f, ensure_ascii=False, separators=(",", ":"))
 
     print(f"\n完了！ 合計 {len(all_data)} 件を data.json に保存しました。")
 

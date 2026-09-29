@@ -2,29 +2,34 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow">
   <title>札幌業者ナビ</title>
+  <meta name="theme-color" content="#0f172a">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="業者ナビ">
-  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="styles.css">
   <style>
     * { -webkit-tap-highlight-color: transparent; }
     body { overscroll-behavior: none; background:#f1f5f9; }
     ::-webkit-scrollbar { display: none; }
+    /* iPhoneで入力時に自動ズームしないよう16px以上に */
+    input, textarea, select { font-size:16px; }
 
     /* ===== ヘッダー（ダークネイビー） ===== */
     .app-header {
       background: linear-gradient(160deg, #1e293b 0%, #0f172a 100%);
+      padding-top: env(safe-area-inset-top);
     }
     .header-title { letter-spacing: 0.02em; }
 
-    /* ===== 支部チップ（控えめ） ===== */
+    /* ===== チップ ===== */
     .chip {
-      display:flex; align-items:center; gap:5px;
+      display:flex; align-items:center; gap:5px; flex-shrink:0;
       padding:5px 11px; border-radius:9999px; font-size:12px; font-weight:600;
       background: rgba(255,255,255,0.08); color:#cbd5e1;
-      border:1px solid rgba(255,255,255,0.12); transition:all 0.15s;
+      border:1px solid rgba(255,255,255,0.12); transition:all 0.15s; white-space:nowrap;
     }
     .chip .dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
     .chip.off { opacity:0.4; }
@@ -36,20 +41,28 @@
     .dot-北支部   { background:#3b82f6; }
     .dot-全日     { background:#ef4444; }
 
-    /* ===== 検索バー ===== */
-    .search-box {
+    /* 絞り込みチップ（ON/OFF型） */
+    .fchip { background: rgba(255,255,255,0.06); color:#94a3b8; }
+    .fchip.on { background:#f8fafc; color:#0f172a; border-color:#f8fafc; }
+
+    /* ===== 検索バー・セレクト ===== */
+    .search-box, .hselect {
       background: rgba(255,255,255,0.1); color:#fff;
       border:1px solid rgba(255,255,255,0.14);
     }
     .search-box::placeholder { color:#94a3b8; }
     .search-box:focus { background: rgba(255,255,255,0.16); border-color:rgba(255,255,255,0.3); }
+    .hselect { font-size:13px; appearance:none; -webkit-appearance:none;
+      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2394a3b8'/%3E%3C/svg%3E");
+      background-repeat:no-repeat; background-position:right 10px center; padding-right:26px; }
+    .hselect option { color:#0f172a; }
 
     /* ===== カードステータス ===== */
     .card { transition: opacity 0.15s; border-left: 4px solid transparent; }
     .card.status-予定  { border-left-color: #3b82f6; }
-    .card.status-済み  { border-left-color: #22c55e; opacity: 0.55; }
+    .card.status-済み  { border-left-color: #22c55e; opacity: 0.6; }
     .card.status-済み .company-name { text-decoration: line-through; color: #94a3b8; }
-    .card.status-なし  { border-left-color: #cbd5e1; opacity: 0.35; }
+    .card.status-なし  { border-left-color: #cbd5e1; opacity: 0.4; }
     .card.status-なし .company-name { color: #94a3b8; }
 
     /* ===== 支部バッジ ===== */
@@ -65,9 +78,9 @@
     .org-全日     { background:#b91c1c; color:#fff; }
 
     /* ===== ステータスバッジ ===== */
-    .sbadge-予定 { background:#dbeafe; color:#1d4ed8; }
-    .sbadge-済み { background:#dcfce7; color:#15803d; }
-    .sbadge-なし { background:#f1f5f9; color:#94a3b8; }
+    .sbadge-予定 { background:#dbeafe; color:#1d4ed8; border-color:#bfdbfe; }
+    .sbadge-済み { background:#dcfce7; color:#15803d; border-color:#bbf7d0; }
+    .sbadge-なし { background:#f1f5f9; color:#94a3b8; border-color:#e2e8f0; }
 
     /* ===== タブ ===== */
     .tab-btn { flex:1; padding:11px 4px; font-size:12px; font-weight:700;
@@ -77,7 +90,7 @@
     /* ===== ステータスポップアップ ===== */
     #status-popup { display:none; position:fixed; z-index:60;
                     background:white; border-radius:16px; padding:8px;
-                    box-shadow:0 8px 32px rgba(0,0,0,0.18); min-width:160px; }
+                    box-shadow:0 8px 32px rgba(0,0,0,0.18); min-width:170px; }
     #status-popup.open { display:block; }
     .sp-btn { display:flex; align-items:center; gap:10px; width:100%;
               padding:10px 14px; border-radius:10px; font-size:14px; font-weight:600; }
@@ -99,24 +112,33 @@
       display:flex; flex-direction:column;
     }
     #drawer.open { transform:translateX(0); }
-    .drawer-head { background: linear-gradient(160deg, #1e293b 0%, #0f172a 100%); color:#fff; padding:22px 20px 18px; }
-    .menu-item { display:flex; align-items:center; gap:14px; padding:15px 20px;
+    .drawer-head { background: linear-gradient(160deg, #1e293b 0%, #0f172a 100%); color:#fff;
+                   padding:calc(22px + env(safe-area-inset-top)) 20px 18px; }
+    .menu-sec { padding:14px 20px 6px; font-size:11px; font-weight:700; color:#94a3b8; letter-spacing:0.05em; }
+    .menu-item { display:flex; align-items:center; gap:14px; padding:13px 20px;
                  border-bottom:1px solid #f1f5f9; font-size:15px; font-weight:600; color:#1e293b; }
     .menu-item:active { background:#f8fafc; }
     .menu-item .mi-icon { width:38px; height:38px; border-radius:10px; display:flex;
                           align-items:center; justify-content:center; font-size:18px; flex-shrink:0; }
     .menu-item .mi-sub { font-size:11px; font-weight:500; color:#94a3b8; margin-top:1px; }
 
-    /* ===== ボタン（落ち着いた配色） ===== */
+    /* ===== ボタン ===== */
     .btn-call { background:#059669; } .btn-call:active { background:#047857; }
     .btn-nav  { background:#475569; } .btn-nav:active  { background:#334155; }
     .btn-info { background:#1e293b; } .btn-info:active { background:#0f172a; }
+
+    /* ===== トースト ===== */
+    #toast { position:fixed; left:50%; bottom:calc(24px + env(safe-area-inset-bottom)); z-index:90;
+             transform:translate(-50%, 20px); opacity:0; pointer-events:none;
+             background:#0f172a; color:#fff; font-size:13px; font-weight:600;
+             padding:10px 16px; border-radius:12px; transition:all 0.2s; max-width:90%; }
+    #toast.show { opacity:1; transform:translate(-50%, 0); }
   </style>
 </head>
-<body class="bg-slate-100 text-slate-800 font-sans select-none">
+<body class="bg-slate-100 text-slate-800 font-sans">
 
 <!-- ===== ヘッダー ===== -->
-<div class="app-header text-white sticky top-0 z-30 shadow-xl">
+<div class="app-header text-white sticky top-0 z-30 shadow-xl select-none">
   <div class="max-w-lg mx-auto px-4 pt-3 pb-3">
 
     <!-- タイトル行 -->
@@ -128,7 +150,7 @@
           <p class="text-[10px] text-slate-400 leading-tight" id="updated">読み込み中...</p>
         </div>
       </div>
-      <button onclick="openDrawer()" aria-label="メニュー"
+      <button id="btn-menu" aria-label="メニュー"
         class="w-9 h-9 flex items-center justify-center rounded-lg active:bg-white/10">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
           <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
@@ -137,13 +159,13 @@
     </div>
 
     <!-- 支部フィルター -->
-    <div class="flex gap-1.5 mb-2.5 overflow-x-auto">
-      <button onclick="toggleSibu('中央支部')" id="btn-中央支部" class="chip"><span class="dot dot-中央支部"></span>中央</button>
-      <button onclick="toggleSibu('東支部')"   id="btn-東支部"   class="chip"><span class="dot dot-東支部"></span>東</button>
-      <button onclick="toggleSibu('西支部')"   id="btn-西支部"   class="chip"><span class="dot dot-西支部"></span>西</button>
-      <button onclick="toggleSibu('南支部')"   id="btn-南支部"   class="chip"><span class="dot dot-南支部"></span>南</button>
-      <button onclick="toggleSibu('北支部')"   id="btn-北支部"   class="chip"><span class="dot dot-北支部"></span>北</button>
-      <button onclick="toggleSibu('全日')"     id="btn-全日"     class="chip"><span class="dot dot-全日"></span>全日</button>
+    <div class="flex gap-1.5 mb-2 overflow-x-auto" id="sibu-chips">
+      <button data-sibu="中央支部" id="btn-中央支部" class="chip"><span class="dot dot-中央支部"></span>中央</button>
+      <button data-sibu="東支部"   id="btn-東支部"   class="chip"><span class="dot dot-東支部"></span>東</button>
+      <button data-sibu="西支部"   id="btn-西支部"   class="chip"><span class="dot dot-西支部"></span>西</button>
+      <button data-sibu="南支部"   id="btn-南支部"   class="chip"><span class="dot dot-南支部"></span>南</button>
+      <button data-sibu="北支部"   id="btn-北支部"   class="chip"><span class="dot dot-北支部"></span>北</button>
+      <button data-sibu="全日"     id="btn-全日"     class="chip"><span class="dot dot-全日"></span>全日</button>
     </div>
 
     <!-- 検索 -->
@@ -151,9 +173,27 @@
       <svg class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
       </svg>
-      <input type="search" id="search" placeholder="社名・住所・宅建番号で検索"
-        autocomplete="off" oninput="debouncedRender()"
-        class="search-box w-full pl-9 pr-3 py-2.5 rounded-xl text-sm focus:outline-none">
+      <input type="search" id="search" placeholder="社名・住所・電話・宅建番号で検索"
+        autocomplete="off" enterkeyhint="search"
+        class="search-box w-full pl-9 pr-3 py-2 rounded-xl focus:outline-none">
+    </div>
+
+    <!-- 地域・並び順・絞り込み -->
+    <div class="flex gap-1.5 mt-2">
+      <select id="ward" class="hselect flex-1 min-w-0 rounded-lg px-2.5 py-1.5" aria-label="地域">
+        <option value="">すべての地域</option>
+      </select>
+      <select id="sort" class="hselect flex-1 min-w-0 rounded-lg px-2.5 py-1.5" aria-label="並び順">
+        <option value="default">標準（予定が上）</option>
+        <option value="oldvisit">最終訪問が古い順</option>
+        <option value="recent">最近更新した順</option>
+        <option value="name">社名順</option>
+      </select>
+    </div>
+    <div class="flex gap-1.5 mt-2 overflow-x-auto">
+      <button class="chip fchip" data-flag="needs_followup">🔔 要フォロー</button>
+      <button class="chip fchip" data-flag="has_bukken">🏠 物件あり</button>
+      <button class="chip fchip" data-flag="has_memo">📝 メモあり</button>
     </div>
 
     <!-- カウンター -->
@@ -161,17 +201,26 @@
   </div>
 
   <!-- ===== ステータスタブ ===== -->
-  <div class="flex bg-white max-w-lg mx-auto">
-    <button class="tab-btn active" id="tab-全て"   onclick="switchTab('全て')">全て</button>
-    <button class="tab-btn"        id="tab-予定"   onclick="switchTab('予定')">📋 訪問予定</button>
-    <button class="tab-btn"        id="tab-済み"   onclick="switchTab('済み')">✅ 訪問済み</button>
-    <button class="tab-btn"        id="tab-なし"   onclick="switchTab('なし')">🚫 訪問しない</button>
+  <div class="flex bg-white max-w-lg mx-auto" id="tabs">
+    <button class="tab-btn active" data-tab="全て">全て</button>
+    <button class="tab-btn"        data-tab="予定">📋 訪問予定</button>
+    <button class="tab-btn"        data-tab="済み">✅ 訪問済み</button>
+    <button class="tab-btn"        data-tab="なし">🚫 訪問しない</button>
+  </div>
+</div>
+
+<!-- ===== バックアップ催促バナー ===== -->
+<div id="backup-banner" class="hidden max-w-lg mx-auto px-3 pt-3">
+  <div class="bg-amber-50 border border-amber-200 text-amber-800 rounded-xl px-4 py-3 text-xs flex items-center gap-3">
+    <span class="text-lg">💾</span>
+    <div class="flex-1">訪問記録はこの端末のブラウザにだけ保存されています。<b>定期的にバックアップ</b>してください。</div>
+    <button id="banner-backup" class="bg-amber-600 text-white font-bold px-3 py-2 rounded-lg whitespace-nowrap">保存</button>
   </div>
 </div>
 
 <!-- ===== ドロワーメニュー ===== -->
-<div id="drawer-overlay" onclick="closeDrawer()"></div>
-<div id="drawer">
+<div id="drawer-overlay"></div>
+<div id="drawer" aria-hidden="true">
   <div class="drawer-head">
     <div class="flex items-center justify-between">
       <div class="flex items-center gap-2">
@@ -181,45 +230,59 @@
           <p class="text-[11px] text-slate-400" id="drawer-stats">　</p>
         </div>
       </div>
-      <button onclick="closeDrawer()" class="text-slate-300 text-2xl leading-none w-8 h-8">&times;</button>
+      <button id="btn-drawer-close" aria-label="閉じる" class="text-slate-300 text-2xl leading-none w-8 h-8">&times;</button>
     </div>
   </div>
 
-  <div class="overflow-y-auto flex-1">
-    <button class="menu-item w-full text-left" onclick="closeDrawer();switchTab('予定')">
+  <div class="overflow-y-auto flex-1" id="drawer-menu">
+    <div class="menu-sec">一覧</div>
+    <button class="menu-item w-full text-left" data-menu="tab" data-tab="予定">
       <span class="mi-icon" style="background:#dbeafe">📋</span>
       <div><div>訪問予定の一覧</div><div class="mi-sub" id="mi-yotei">0件</div></div>
     </button>
-    <button class="menu-item w-full text-left" onclick="closeDrawer();switchTab('済み')">
+    <button class="menu-item w-full text-left" data-menu="tab" data-tab="済み">
       <span class="mi-icon" style="background:#dcfce7">✅</span>
       <div><div>訪問済みの一覧</div><div class="mi-sub" id="mi-sumi">0件</div></div>
     </button>
-    <button class="menu-item w-full text-left" onclick="closeDrawer();switchTab('なし')">
+    <button class="menu-item w-full text-left" data-menu="tab" data-tab="なし">
       <span class="mi-icon" style="background:#f1f5f9">🚫</span>
       <div><div>訪問しない一覧</div><div class="mi-sub" id="mi-nashi">0件</div></div>
     </button>
-    <button class="menu-item w-full text-left" onclick="closeDrawer();switchTab('全て')">
+    <button class="menu-item w-full text-left" data-menu="reset-filters">
       <span class="mi-icon" style="background:#e0e7ff">🗂️</span>
-      <div><div>すべて表示</div><div class="mi-sub" id="mi-all">全件</div></div>
+      <div><div>絞り込みを解除してすべて表示</div><div class="mi-sub" id="mi-all">全件</div></div>
     </button>
-    <button class="menu-item w-full text-left" onclick="allSibu(true)">
-      <span class="mi-icon" style="background:#f0fdf4">☑️</span>
-      <div><div>全支部を表示</div><div class="mi-sub">5支部すべてON</div></div>
+
+    <div class="menu-sec">記録のバックアップ</div>
+    <button class="menu-item w-full text-left" data-menu="export-json">
+      <span class="mi-icon" style="background:#dcfce7">💾</span>
+      <div><div>バックアップを保存</div><div class="mi-sub" id="mi-backup">未保存</div></div>
     </button>
-    <button class="menu-item w-full text-left" onclick="reloadData()">
+    <button class="menu-item w-full text-left" data-menu="import-json">
+      <span class="mi-icon" style="background:#e0f2fe">📂</span>
+      <div><div>バックアップから復元</div><div class="mi-sub">別の端末への引き継ぎにも使えます</div></div>
+    </button>
+    <button class="menu-item w-full text-left" data-menu="export-csv">
+      <span class="mi-icon" style="background:#f0fdf4">📊</span>
+      <div><div>訪問記録をCSVで出力</div><div class="mi-sub">Excelで開けます</div></div>
+    </button>
+
+    <div class="menu-sec">その他</div>
+    <button class="menu-item w-full text-left" data-menu="reload">
       <span class="mi-icon" style="background:#fef9c3">🔄</span>
       <div><div>データを再読み込み</div><div class="mi-sub" id="mi-updated">最新データを取得</div></div>
     </button>
-    <button class="menu-item w-full text-left" onclick="closeDrawer();confirmReset()">
+    <button class="menu-item w-full text-left" data-menu="reset">
       <span class="mi-icon" style="background:#fee2e2">🗑️</span>
-      <div><div>訪問記録をリセット</div><div class="mi-sub">ステータス・メモを全消去</div></div>
+      <div><div>訪問記録をリセット</div><div class="mi-sub">ステータス・メモ・訪問日を全消去</div></div>
     </button>
   </div>
 
-  <div class="px-5 py-4 text-[11px] text-slate-400 border-t border-slate-100">
-    データ更新は毎月1日に自動実行されます
+  <div class="px-5 py-4 text-[11px] text-slate-400 border-t border-slate-100" id="drawer-foot">
+    業者データは毎月1日に自動更新されます
   </div>
 </div>
+<input type="file" id="import-file" accept="application/json,.json" class="hidden">
 
 <!-- ===== リスト ===== -->
 <div class="max-w-lg mx-auto px-3 py-3 space-y-3" id="list"></div>
@@ -227,31 +290,31 @@
 
 <!-- ===== ステータス選択ポップアップ ===== -->
 <div id="status-popup">
-  <button class="sp-btn" onclick="setStatus(null)">
+  <button class="sp-btn" data-st="">
     <span class="sp-dot" style="background:#e2e8f0;border:2px solid #cbd5e1"></span>
     <span class="text-slate-500">未設定に戻す</span>
   </button>
-  <button class="sp-btn" onclick="setStatus('予定')">
+  <button class="sp-btn" data-st="予定">
     <span class="sp-dot" style="background:#3b82f6"></span>
     <span class="text-blue-700">📋 訪問予定</span>
   </button>
-  <button class="sp-btn" onclick="setStatus('済み')">
+  <button class="sp-btn" data-st="済み">
     <span class="sp-dot" style="background:#22c55e"></span>
-    <span class="text-green-700">✅ 訪問済み</span>
+    <span class="text-green-700">✅ 訪問済み（今日）</span>
   </button>
-  <button class="sp-btn" onclick="setStatus('なし')">
+  <button class="sp-btn" data-st="なし">
     <span class="sp-dot" style="background:#cbd5e1"></span>
     <span class="text-slate-400">🚫 訪問しない</span>
   </button>
 </div>
-<div id="popup-overlay" class="hidden fixed inset-0 z-50" onclick="closePopup()"></div>
+<div id="popup-overlay" class="hidden fixed inset-0 z-50"></div>
 
 <!-- ===== メモモーダル ===== -->
 <div id="memo-modal" class="fixed inset-0 z-50 bg-black/60 items-end justify-center">
-  <div class="bg-white w-full max-w-lg rounded-t-2xl p-5 pb-8 shadow-2xl">
-    <div class="flex justify-between items-center mb-3">
-      <h2 class="font-bold text-base" id="memo-title">メモ</h2>
-      <button onclick="closeMemo()" class="text-slate-400 text-2xl leading-none">&times;</button>
+  <div class="bg-white w-full max-w-lg rounded-t-2xl p-5 pb-8 shadow-2xl max-h-[92vh] overflow-y-auto">
+    <div class="flex justify-between items-start gap-3 mb-3">
+      <h2 class="font-bold text-base leading-snug" id="memo-title">メモ</h2>
+      <button id="memo-close" aria-label="閉じる" class="text-slate-400 text-2xl leading-none">&times;</button>
     </div>
     <div class="grid grid-cols-2 gap-3 mb-4">
       <label class="flex items-center gap-2 bg-slate-50 p-3 rounded-lg cursor-pointer">
@@ -263,325 +326,603 @@
         <span class="text-sm font-medium">要フォロー</span>
       </label>
     </div>
-    <label class="block text-xs text-slate-500 mb-1">担当者名</label>
+    <label class="block text-xs text-slate-500 mb-1" for="memo-person">担当者名</label>
     <input type="text" id="memo-person" placeholder="例：田中 課長"
-      class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-blue-300">
-    <label class="block text-xs text-slate-500 mb-1">メモ</label>
+      class="w-full border border-slate-200 rounded-lg px-3 py-2 mb-3 focus:outline-none focus:ring-2 focus:ring-blue-300">
+    <label class="block text-xs text-slate-500 mb-1" for="memo-text">メモ</label>
     <textarea id="memo-text" rows="3" placeholder="訪問内容・物件情報・次回アクション等"
-      class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-300"></textarea>
-    <button onclick="saveMemo()"
-      class="w-full mt-4 bg-slate-800 text-white font-bold py-3 rounded-xl text-sm active:bg-slate-900">保存する</button>
+      class="w-full border border-slate-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-blue-300"></textarea>
+
+    <label class="block text-xs text-slate-500 mt-3 mb-1">訪問日の記録</label>
+    <div id="memo-visits" class="flex flex-wrap gap-1.5 mb-2"></div>
+    <div class="flex gap-2">
+      <input type="date" id="memo-visit-date"
+        class="flex-1 border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300">
+      <button id="memo-visit-add" class="bg-slate-100 text-slate-700 font-bold px-4 rounded-lg text-sm whitespace-nowrap">＋ 追加</button>
+    </div>
+
+    <button id="memo-save"
+      class="w-full mt-5 bg-slate-800 text-white font-bold py-3 rounded-xl text-sm active:bg-slate-900">保存する</button>
   </div>
 </div>
 
+<div id="toast" role="status" aria-live="polite"></div>
+
 <script>
-// ===== 状態 =====
+'use strict';
+// =====================================================================
+// 状態
+// =====================================================================
 let allData = [];
-let sibuFilters = { '中央支部':true, '東支部':true, '西支部':true, '南支部':true, '北支部':true, '全日':true };
-let currentTab  = '全て';   // '全て' | '予定' | '済み' | 'なし'
+let dataUpdated = '';
+const sibuFilters = { '中央支部':true, '東支部':true, '西支部':true, '南支部':true, '北支部':true, '全日':true };
+const flagFilters = { needs_followup:false, has_bukken:false, has_memo:false };
+let currentTab     = '全て';   // '全て' | '予定' | '済み' | 'なし'
+let currentWard    = '';
+let currentSort    = 'default';
 let currentMemoId  = null;
 let currentPopupId = null;
+let memoVisits     = [];      // モーダル編集中の訪問日
 
-// ===== LocalStorage =====
-const LS_STATUS = 'status_v3';
-const LS_MEMOS  = 'memos_v2';
+const $ = id => document.getElementById(id);
 
-function getStatuses() { try { return JSON.parse(localStorage.getItem(LS_STATUS)||'{}'); } catch{return{};} }
-function getMemos()    { try { return JSON.parse(localStorage.getItem(LS_MEMOS) ||'{}'); } catch{return{};} }
-function saveStatuses(s){ localStorage.setItem(LS_STATUS, JSON.stringify(s)); }
-function saveMemos(m)   { localStorage.setItem(LS_MEMOS,  JSON.stringify(m)); }
+// =====================================================================
+// 保存データ（LocalStorage）
+//   records_v4 = { [会社ID]: { status, memo:{has_bukken,needs_followup,person,text}, visits:[YYYY-MM-DD], updatedAt } }
+//   会社IDは「団体＋宅建番号＋商号」から作る固定値なので、データ更新でずれない。
+// =====================================================================
+const LS_RECORDS = 'records_v4';
+const LS_BACKUP  = 'last_backup_v4';
+const LEGACY_STATUS = 'status_v3';
+const LEGACY_MEMOS  = 'memos_v2';
 
-// ===== データ読み込み =====
-async function loadData() {
+function lsGet(key, fallback) {
+  try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; }
+  catch { return fallback; }
+}
+function lsSet(key, val) {
+  try { localStorage.setItem(key, JSON.stringify(val)); return true; }
+  catch (e) { toast('保存に失敗しました（ブラウザの保存領域をご確認ください）'); return false; }
+}
+
+let records = lsGet(LS_RECORDS, {});
+function saveRecords() { lsSet(LS_RECORDS, records); }
+
+function rec(id)      { return records[id] || {}; }
+function touch(id)    {
+  const r = records[id] || (records[id] = {});
+  r.updatedAt = Date.now();
+  return r;
+}
+function cleanup(id) {
+  const r = records[id]; if (!r) return;
+  const m = r.memo || {};
+  const memoEmpty = !m.has_bukken && !m.needs_followup && !m.person && !m.text;
+  if (memoEmpty) delete r.memo;
+  if (!r.visits || !r.visits.length) delete r.visits;
+  if (!r.status && !r.memo && !r.visits) delete records[id];
+}
+
+// ---- 旧形式（連番ID）からの移行 ------------------------------------
+async function migrateLegacy() {
+  const oldSt = lsGet(LEGACY_STATUS, null);
+  const oldMm = lsGet(LEGACY_MEMOS, null);
+  if (!oldSt && !oldMm) return;
+  if (localStorage.getItem('migrated_v4')) return;
   try {
-    const res  = await fetch('data.json?_='+Date.now());
-    const json = await res.json();
-    allData = json.companies || [];
-    const upd = json.updated || '';
-    document.getElementById('updated').textContent = '最終更新 ' + upd;
-    document.getElementById('mi-updated').textContent = '最終更新: ' + upd;
-    renderList();
-  } catch(e) {
-    document.getElementById('counter').textContent = 'data.jsonが見つかりません';
+    const res = await fetch('legacy_ids.json', { cache:'no-cache' });
+    const map = await res.json();          // { 旧連番ID: 新ID }
+    const moved = new Set();
+    const today = todayStr();
+    Object.entries(oldSt || {}).forEach(([oid, st]) => {
+      const nid = map[oid]; if (!nid || !st) return;
+      const r = records[nid] || (records[nid] = {});
+      if (!r.status) { r.status = st; moved.add(nid); }
+      r.updatedAt = r.updatedAt || Date.now();
+    });
+    Object.entries(oldMm || {}).forEach(([oid, m]) => {
+      const nid = map[oid]; if (!nid || !m) return;
+      const r = records[nid] || (records[nid] = {});
+      if (!r.memo) { r.memo = m; moved.add(nid); }
+      r.updatedAt = r.updatedAt || Date.now();
+      cleanup(nid);
+    });
+    saveRecords();
+    localStorage.setItem('migrated_v4', today);
+    // 旧データは念のため残しておく（削除しない）
+    if (moved.size) toast(`以前の訪問記録 ${moved.size}社分を引き継ぎました`);
+  } catch (e) {
+    console.warn('移行に失敗', e);
   }
 }
 
-// ===== データ再読み込み（メニューから） =====
-async function reloadData() {
-  document.getElementById('mi-updated').textContent = '読み込み中...';
-  await loadData();
-  closeDrawer();
+// =====================================================================
+// 文字の正規化（全角/半角・㈱/株式会社・ハイフン・空白の違いを吸収）
+// =====================================================================
+function norm(s) {
+  return (s || '').normalize('NFKC').toLowerCase()
+    .replace(/\(株\)|株式会社/g, '株')
+    .replace(/\(有\)|有限会社/g, '有')
+    .replace(/\(合\)|合同会社/g, '合')
+    .replace(/[\s　]/g, '')
+    .replace(/[-‐‑‒–—―−ｰ'’‘`・.,]/g, '');
 }
 
-// ===== ドロワー =====
-function openDrawer() {
-  document.getElementById('drawer').classList.add('open');
-  document.getElementById('drawer-overlay').classList.add('open');
+function wardOf(address) {
+  const a = (address || '').normalize('NFKC');
+  const m = a.match(/札幌市(.{1,3}?区)/);
+  if (m) return m[1];
+  return '札幌市外';
 }
-function closeDrawer() {
-  document.getElementById('drawer').classList.remove('open');
-  document.getElementById('drawer-overlay').classList.remove('open');
-}
-function allSibu(on) {
-  Object.keys(sibuFilters).forEach(s => {
-    sibuFilters[s] = on;
-    const btn = document.getElementById('btn-'+s);
-    if (btn) btn.classList.toggle('off', !on);
-  });
-  renderList();
-  closeDrawer();
+const WARDS = ['中央区','北区','東区','白石区','厚別区','豊平区','清田区','南区','西区','手稲区','札幌市外'];
+
+// =====================================================================
+// データ読み込み
+// =====================================================================
+async function loadData() {
+  try {
+    // no-cache = 毎回サーバーに確認するが、変わっていなければキャッシュを使う
+    const res  = await fetch('data.json', { cache:'no-cache' });
+    if (!res.ok) throw new Error(res.status);
+    const json = await res.json();
+    allData = (json.companies || []).filter(c => c.name && !/^免許/.test(c.takken_no || ''));
+    allData.forEach(c => {
+      c._ward = wardOf(c.address);
+      c._q = norm([c.name, c.address, c.takken_no, c.phone, c.representative, c.zip].join('|'));
+      c._name = (c.name || '').normalize('NFKC');
+    });
+    dataUpdated = json.updated || '';
+    $('updated').textContent = '最終更新 ' + dataUpdated;
+    $('mi-updated').textContent = '最終更新: ' + dataUpdated;
+    $('drawer-foot').textContent = `業者データは毎月1日に自動更新されます（最終更新 ${dataUpdated}）`;
+    buildWardOptions();
+    renderList();
+  } catch (e) {
+    $('counter').textContent = 'データを読み込めませんでした。電波の良い所で再読み込みしてください。';
+  }
 }
 
-// ===== 検索デバウンス =====
-let _debTimer = null;
-function debouncedRender() {
-  clearTimeout(_debTimer);
-  _debTimer = setTimeout(renderList, 180);
+function buildWardOptions() {
+  const cnt = {};
+  allData.forEach(c => { cnt[c._ward] = (cnt[c._ward] || 0) + 1; });
+  const sel = $('ward');
+  sel.innerHTML = '<option value="">すべての地域</option>' +
+    WARDS.filter(w => cnt[w]).map(w => `<option value="${w}">${w}（${cnt[w]}）</option>`).join('');
+  sel.value = currentWard;
 }
 
-// ===== タブ切り替え =====
-function switchTab(tab) {
-  currentTab = tab;
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById('tab-'+tab).classList.add('active');
-  renderList();
-}
+// =====================================================================
+// 描画
+// =====================================================================
+const STATUS_LABEL = { 予定:'📋 訪問予定', 済み:'✅ 訪問済み', なし:'🚫 訪問しない' };
 
-// ===== 支部フィルター =====
-function toggleSibu(sibu) {
-  sibuFilters[sibu] = !sibuFilters[sibu];
-  const btn = document.getElementById('btn-'+sibu);
-  if (btn) btn.classList.toggle('off', !sibuFilters[sibu]);
-  renderList();
-}
+function lastVisit(r) { return (r.visits && r.visits.length) ? r.visits[r.visits.length - 1] : ''; }
 
-// ===== リスト描画 =====
 function renderList() {
-  const q        = (document.getElementById('search').value||'').trim().toLowerCase();
-  const statuses = getStatuses();
-  const memos    = getMemos();
+  const q = norm($('search').value);
 
-  // フィルタリング
   let list = allData.filter(c => {
     if (!sibuFilters[c.sibu]) return false;
-    const st = statuses[c.id] || null;
-    if (currentTab === '予定' && st !== '予定') return false;
-    if (currentTab === '済み' && st !== '済み') return false;
-    if (currentTab === 'なし' && st !== 'なし') return false;
-    if (currentTab === '全て' && st === 'なし') return false; // 「全て」タブでは「訪問しない」を非表示
-    if (!q) return true;
-    return [c.name, c.address, c.takken_no, c.phone, c.representative]
-      .some(v => (v||'').toLowerCase().includes(q));
+    if (currentWard && c._ward !== currentWard) return false;
+    const r  = records[c.id];
+    const st = r ? r.status : null;
+    if (currentTab === '全て') { if (st === 'なし') return false; }  // 「全て」では訪問しないを隠す
+    else if (st !== currentTab) return false;
+    const m = (r && r.memo) || {};
+    if (flagFilters.needs_followup && !m.needs_followup) return false;
+    if (flagFilters.has_bukken && !m.has_bukken) return false;
+    if (flagFilters.has_memo && !(m.text || m.person)) return false;
+    if (q && !c._q.includes(q)) return false;
+    return true;
   });
 
-  // ソート: 予定 → 未設定 → 済み
-  const order = { '予定':0, null:1, undefined:1, '済み':2 };
-  list.sort((a,b) => (order[statuses[a.id]]??1) - (order[statuses[b.id]]??1));
+  // 並び替え
+  const order = { 予定:0, 済み:2 };
+  const stOrd = c => { const s = (records[c.id]||{}).status; return s in order ? order[s] : 1; };
+  if (currentSort === 'default') {
+    list.sort((a,b) => stOrd(a) - stOrd(b));
+  } else if (currentSort === 'oldvisit') {
+    // 訪問したことがある会社を最終訪問が古い順に。未訪問は後ろ。
+    list.sort((a,b) => {
+      const va = lastVisit(rec(a.id)), vb = lastVisit(rec(b.id));
+      if (!va && !vb) return 0; if (!va) return 1; if (!vb) return -1;
+      return va < vb ? -1 : va > vb ? 1 : 0;
+    });
+  } else if (currentSort === 'recent') {
+    list.sort((a,b) => (rec(b.id).updatedAt||0) - (rec(a.id).updatedAt||0));
+  } else if (currentSort === 'name') {
+    const coll = new Intl.Collator('ja');
+    const key = c => c._name.replace(/\(株\)|株式会社|\(有\)|有限会社|\(準\)/g,'').trim();
+    list.sort((a,b) => coll.compare(key(a), key(b)));
+  }
 
-  // カウンター
-  const cnt = { '予定':0, '済み':0, 'なし':0 };
-  allData.forEach(c => { const s=statuses[c.id]; if(s) cnt[s]=(cnt[s]||0)+1; });
-  document.getElementById('counter').textContent =
+  // 件数
+  const cnt = { 予定:0, 済み:0, なし:0 };
+  allData.forEach(c => { const s = (records[c.id]||{}).status; if (s) cnt[s]++; });
+  $('counter').textContent =
     `${list.length}件を表示中　･　予定 ${cnt['予定']}　済 ${cnt['済み']}　対象外 ${cnt['なし']}`;
+  $('mi-yotei').textContent = cnt['予定'] + '件';
+  $('mi-sumi').textContent  = cnt['済み'] + '件';
+  $('mi-nashi').textContent = cnt['なし'] + '件';
+  $('mi-all').textContent   = '全' + allData.length + '件';
+  $('drawer-stats').textContent = '全' + allData.length + '件 登録';
 
-  // ドロワー内の件数も更新
-  const setTxt = (id, v) => { const el=document.getElementById(id); if(el) el.textContent=v; };
-  setTxt('mi-yotei', cnt['予定']+'件');
-  setTxt('mi-sumi',  cnt['済み']+'件');
-  setTxt('mi-nashi', cnt['なし']+'件');
-  setTxt('mi-all',   '全'+allData.length+'件');
-  setTxt('drawer-stats', '全'+allData.length+'件 登録');
+  updateBackupInfo();
 
-  const listEl  = document.getElementById('list');
-  const emptyEl = document.getElementById('empty');
-
-  // 分割描画の状態を保存
-  _list = list; _shown = 0; _statuses = statuses; _memos = memos;
-
-  if (!list.length) { listEl.innerHTML=''; emptyEl.classList.remove('hidden'); return; }
-  emptyEl.classList.add('hidden');
-
+  _list = list; _shown = 0;
+  const listEl = $('list');
   listEl.innerHTML = '';
+  if (!list.length) { $('empty').classList.remove('hidden'); return; }
+  $('empty').classList.add('hidden');
   renderMore();
 }
 
-// ===== 分割描画（スクロールで追加読み込み） =====
-let _list = [], _shown = 0, _statuses = {}, _memos = {};
+// ---- 分割描画（スクロールで追加読み込み） ---------------------------
+let _list = [], _shown = 0;
 const PAGE_SIZE = 40;
 
 function renderMore() {
-  const listEl = document.getElementById('list');
+  const listEl = $('list');
   const slice = _list.slice(_shown, _shown + PAGE_SIZE);
   if (!slice.length) return;
-  const html = slice.map(c => cardHtml(c, _statuses, _memos)).join('');
-  // sentinelの前に挿入
-  const sentinel = document.getElementById('scroll-sentinel');
+  const html = slice.map(cardHtml).join('');
+  const sentinel = $('scroll-sentinel');
   if (sentinel) sentinel.insertAdjacentHTML('beforebegin', html);
   else listEl.insertAdjacentHTML('beforeend', html);
   _shown += slice.length;
   ensureSentinel();
 }
-
 function ensureSentinel() {
-  const listEl = document.getElementById('list');
-  let sentinel = document.getElementById('scroll-sentinel');
-  if (_shown >= _list.length) { if (sentinel) sentinel.remove(); return; }
+  let sentinel = $('scroll-sentinel');
+  if (_shown >= _list.length) { if (sentinel) { _io.unobserve(sentinel); sentinel.remove(); } return; }
   if (!sentinel) {
-    listEl.insertAdjacentHTML('beforeend', '<div id="scroll-sentinel" style="height:1px"></div>');
-    sentinel = document.getElementById('scroll-sentinel');
-    _io.observe(sentinel);
+    $('list').insertAdjacentHTML('beforeend', '<div id="scroll-sentinel" style="height:1px"></div>');
+    _io.observe($('scroll-sentinel'));
   }
 }
-
-const _io = new IntersectionObserver((entries) => {
+const _io = new IntersectionObserver(entries => {
   if (entries.some(e => e.isIntersecting)) renderMore();
 }, { rootMargin: '600px' });
 
-// ===== カードHTML生成 =====
-function cardHtml(c, statuses, memos) {
-    const st   = statuses[c.id] || null;
-    const memo = memos[c.id] || {};
+// ---- カード ---------------------------------------------------------
+function fmtDate(d) { return d ? d.replace(/^(\d{4})-(\d{2})-(\d{2})$/, (_,y,m,dd)=>`${y}/${+m}/${+dd}`) : ''; }
 
-    // ステータスボタン表示
-    const stBtn = st
-      ? `<button onclick="openPopup(event,'${c.id}')"
-           class="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold sbadge-${st} border border-current/20 whitespace-nowrap">
-           ${{予定:'📋 訪問予定', 済み:'✅ 訪問済み', なし:'🚫 訪問しない'}[st]}
-         </button>`
-      : `<button onclick="openPopup(event,'${c.id}')"
-           class="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-400 border border-slate-200 whitespace-nowrap">
-           ＋ ステータス
-         </button>`;
+function cardHtml(c) {
+  const r    = rec(c.id);
+  const st   = r.status || null;
+  const memo = r.memo || {};
+  const id   = escHtml(c.id);
 
-    // メモタグ
-    const tags = [
-      memo.has_bukken    ? '<span class="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-xs">物件あり</span>' : '',
-      memo.needs_followup? '<span class="bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full text-xs">要フォロー</span>' : '',
-      memo.person        ? `<span class="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full text-xs">👤 ${escHtml(memo.person)}</span>` : '',
-    ].filter(Boolean).join('');
+  const stBtn = st
+    ? `<button data-act="status" class="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold sbadge-${st} border whitespace-nowrap">${STATUS_LABEL[st]}</button>`
+    : `<button data-act="status" class="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-400 border border-slate-200 whitespace-nowrap">＋ ステータス</button>`;
 
-    const memoText = memo.text
-      ? `<p class="text-xs text-slate-500 mt-1 line-clamp-2">📝 ${escHtml(memo.text)}</p>` : '';
+  const lv = lastVisit(r);
+  const tags = [
+    lv                  ? `<span class="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full text-xs">🗓️ 最終訪問 ${fmtDate(lv)}${r.visits.length>1?`（${r.visits.length}回）`:''}</span>` : '',
+    memo.has_bukken     ? '<span class="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-xs">物件あり</span>' : '',
+    memo.needs_followup ? '<span class="bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full text-xs">要フォロー</span>' : '',
+    memo.person         ? `<span class="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full text-xs">👤 ${escHtml(memo.person)}</span>` : '',
+  ].filter(Boolean).join('');
 
-    return `
-    <div class="card bg-white rounded-xl shadow-sm overflow-hidden ${st?'status-'+st:''}" id="card-${c.id}">
-      <div class="p-4">
-        <div class="flex items-start justify-between gap-2">
-          <div class="flex-1 min-w-0">
-            <div class="flex items-center gap-1.5 mb-0.5 flex-wrap">
-              <span class="text-xs px-2 py-0.5 rounded-full font-bold org-${c.source||'宅建協会'}">${c.source||'宅建協会'}</span>
-              ${(c.source!=='全日') ? `<span class="text-xs px-2 py-0.5 rounded-full font-bold badge-${c.sibu}">${c.sibu}</span>` : ''}
-            </div>
-            <h2 class="company-name font-bold text-base leading-snug">${escHtml(c.name)}</h2>
+  const memoText = memo.text
+    ? `<p class="text-xs text-slate-500 mt-1 line-clamp-2 whitespace-pre-line">📝 ${escHtml(memo.text)}</p>` : '';
+
+  const org = c.source === '全日' ? '全日' : '宅建協会';
+
+  return `
+  <div class="card bg-white rounded-xl shadow-sm overflow-hidden ${st ? 'status-'+st : ''}" data-id="${id}">
+    <div class="p-4">
+      <div class="flex items-start justify-between gap-2">
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-1.5 mb-0.5 flex-wrap">
+            <span class="text-xs px-2 py-0.5 rounded-full font-bold org-${org}">${org}</span>
+            ${org !== '全日' ? `<span class="text-xs px-2 py-0.5 rounded-full font-bold badge-${escHtml(c.sibu)}">${escHtml(c.sibu)}</span>` : ''}
+            <span class="text-[11px] text-slate-400">${escHtml(c._ward)}</span>
           </div>
-          ${stBtn}
+          <h2 class="company-name font-bold text-base leading-snug select-text">${escHtml(c.name)}</h2>
         </div>
-        <div class="mt-2 space-y-1 text-sm text-slate-600">
-          <p>📍 ${escHtml(c.address)}</p>
-          ${c.phone ? `<p>📞 ${escHtml(c.phone)}</p>` : ''}
-          ${c.takken_no ? `<p class="text-xs text-slate-400">🏛️ ${escHtml(c.takken_no)}</p>` : ''}
-          ${c.representative ? `<p class="text-xs text-slate-400">👤 代表: ${escHtml(c.representative)}</p>` : ''}
-        </div>
-        ${tags ? `<div class="flex flex-wrap gap-1 mt-2">${tags}</div>` : ''}
-        ${memoText}
+        ${stBtn}
       </div>
-
-      <div class="grid grid-cols-3 border-t border-slate-100">
-        ${c.phone
-          ? `<button onclick="callPhone('${escHtml(c.phone)}')" class="btn-call text-white py-3 text-sm font-bold flex items-center justify-center">📞 電話</button>`
-          : `<div class="bg-slate-50 py-3"></div>`}
-        <button onclick="openNav('${escHtml(c.address)}')" class="btn-nav text-white py-3 text-sm font-bold flex items-center justify-center">🗺️ ナビ</button>
-        <button onclick="openMemo('${c.id}','${escHtml(c.name)}')" class="btn-info text-white py-3 text-sm font-bold flex items-center justify-center">✏️ メモ</button>
+      <div class="mt-2 space-y-1 text-sm text-slate-600 select-text">
+        <p>📍 ${c.zip ? `<span class="text-xs text-slate-400">〒${escHtml(c.zip)}</span> ` : ''}${escHtml(c.address)}</p>
+        ${c.phone ? `<p>📞 ${escHtml(c.phone)}</p>` : ''}
+        ${c.takken_no ? `<p class="text-xs text-slate-400">🏛️ ${escHtml(c.takken_no)}</p>` : ''}
+        ${c.representative ? `<p class="text-xs text-slate-400">👤 代表: ${escHtml(c.representative)}</p>` : ''}
       </div>
+      ${tags ? `<div class="flex flex-wrap gap-1 mt-2">${tags}</div>` : ''}
+      ${memoText}
+    </div>
 
-      ${c.hp ? `
-      <div class="px-4 pb-3 pt-1 text-xs border-t border-slate-50">
-        <p><a href="${escHtml(c.hp)}" target="_blank" class="text-blue-500 underline break-all">${escHtml(c.hp)}</a></p>
-      </div>` : ''}
-    </div>`;
+    <div class="grid grid-cols-3 border-t border-slate-100">
+      ${c.phone
+        ? `<a href="tel:${escHtml(c.phone.replace(/[^0-9+]/g,''))}" class="btn-call text-white py-3 text-sm font-bold flex items-center justify-center">📞 電話</a>`
+        : `<div class="bg-slate-50 py-3"></div>`}
+      <a href="${escHtml(navUrl(c.address))}" target="_blank" rel="noopener" class="btn-nav text-white py-3 text-sm font-bold flex items-center justify-center">🗺️ ナビ</a>
+      <button data-act="memo" class="btn-info text-white py-3 text-sm font-bold flex items-center justify-center">✏️ メモ</button>
+    </div>
+
+    ${c.hp && /^https?:\/\//.test(c.hp) ? `
+    <div class="px-4 pb-3 pt-1 text-xs border-t border-slate-50">
+      <p><a href="${escHtml(c.hp)}" target="_blank" rel="noopener" class="text-blue-500 underline break-all">${escHtml(c.hp)}</a></p>
+    </div>` : ''}
+  </div>`;
 }
 
-// ===== ステータスポップアップ =====
-function openPopup(e, id) {
-  e.stopPropagation();
+// Googleマップの経路案内（目的地指定）を直接開くURL
+function navUrl(address) {
+  return 'https://www.google.com/maps/dir/?api=1&travelmode=driving&destination=' + encodeURIComponent(address || '');
+}
+
+// =====================================================================
+// イベント（イベント委譲：社名に ' などが含まれても壊れない）
+// =====================================================================
+$('list').addEventListener('click', e => {
+  const btn = e.target.closest('[data-act]');
+  if (!btn) return;
+  const card = btn.closest('.card');
+  const id = card && card.dataset.id;
+  if (!id) return;
+  if (btn.dataset.act === 'status') openPopup(btn, id);
+  if (btn.dataset.act === 'memo')   openMemo(id);
+});
+
+$('sibu-chips').addEventListener('click', e => {
+  const b = e.target.closest('[data-sibu]'); if (!b) return;
+  const s = b.dataset.sibu;
+  sibuFilters[s] = !sibuFilters[s];
+  b.classList.toggle('off', !sibuFilters[s]);
+  renderList();
+});
+
+document.querySelectorAll('[data-flag]').forEach(b => b.addEventListener('click', () => {
+  const f = b.dataset.flag;
+  flagFilters[f] = !flagFilters[f];
+  b.classList.toggle('on', flagFilters[f]);
+  renderList();
+}));
+
+$('tabs').addEventListener('click', e => {
+  const b = e.target.closest('[data-tab]'); if (b) switchTab(b.dataset.tab);
+});
+
+let _debTimer = null;
+$('search').addEventListener('input', () => { clearTimeout(_debTimer); _debTimer = setTimeout(renderList, 180); });
+$('ward').addEventListener('change', e => { currentWard = e.target.value; renderList(); });
+$('sort').addEventListener('change', e => { currentSort = e.target.value; renderList(); });
+
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  renderList();
+  window.scrollTo({ top: 0 });
+}
+
+function resetFilters() {
+  Object.keys(sibuFilters).forEach(s => { sibuFilters[s] = true; $('btn-'+s).classList.remove('off'); });
+  Object.keys(flagFilters).forEach(f => flagFilters[f] = false);
+  document.querySelectorAll('[data-flag]').forEach(b => b.classList.remove('on'));
+  currentWard = ''; $('ward').value = '';
+  $('search').value = '';
+  switchTab('全て');
+}
+
+// ---- ドロワー -------------------------------------------------------
+function openDrawer()  { $('drawer').classList.add('open'); $('drawer-overlay').classList.add('open'); $('drawer').setAttribute('aria-hidden','false'); }
+function closeDrawer() { $('drawer').classList.remove('open'); $('drawer-overlay').classList.remove('open'); $('drawer').setAttribute('aria-hidden','true'); }
+$('btn-menu').addEventListener('click', openDrawer);
+$('btn-drawer-close').addEventListener('click', closeDrawer);
+$('drawer-overlay').addEventListener('click', closeDrawer);
+
+$('drawer-menu').addEventListener('click', async e => {
+  const b = e.target.closest('[data-menu]'); if (!b) return;
+  const act = b.dataset.menu;
+  if (act === 'tab')           { closeDrawer(); switchTab(b.dataset.tab); }
+  if (act === 'reset-filters') { closeDrawer(); resetFilters(); }
+  if (act === 'export-json')   { exportJson(); }
+  if (act === 'import-json')   { $('import-file').click(); }
+  if (act === 'export-csv')    { exportCsv(); }
+  if (act === 'reload')        { $('mi-updated').textContent = '読み込み中...'; await loadData(); closeDrawer(); toast('データを再読み込みしました'); }
+  if (act === 'reset')         { closeDrawer(); confirmReset(); }
+});
+
+// ---- ステータスポップアップ -----------------------------------------
+function openPopup(btn, id) {
   currentPopupId = id;
-  const popup = document.getElementById('status-popup');
-  const rect  = e.currentTarget.getBoundingClientRect();
-  // position:fixed はビューポート基準なので scrollY は足さない
-  popup.classList.add('open'); // 先に表示してサイズを取得
-  const ph = popup.offsetHeight || 200;
+  const popup = $('status-popup');
+  const rect  = btn.getBoundingClientRect();
+  popup.classList.add('open');
+  const ph = popup.offsetHeight || 200, pw = popup.offsetWidth || 180;
   let top = rect.bottom + 6;
-  // 画面下にはみ出す場合はボタンの上側に表示
-  if (top + ph > window.innerHeight - 8) {
-    top = Math.max(8, rect.top - ph - 6);
-  }
-  const left = Math.min(rect.left, window.innerWidth - 180);
+  if (top + ph > window.innerHeight - 8) top = Math.max(8, rect.top - ph - 6);
+  const left = Math.max(8, Math.min(rect.right - pw, window.innerWidth - pw - 8));
   popup.style.top  = top + 'px';
   popup.style.left = left + 'px';
-  document.getElementById('popup-overlay').classList.remove('hidden');
+  $('popup-overlay').classList.remove('hidden');
 }
 function closePopup() {
-  document.getElementById('status-popup').classList.remove('open');
-  document.getElementById('popup-overlay').classList.add('hidden');
+  $('status-popup').classList.remove('open');
+  $('popup-overlay').classList.add('hidden');
   currentPopupId = null;
 }
-function setStatus(st) {
-  if (!currentPopupId) return;
-  const statuses = getStatuses();
-  if (st === null) delete statuses[currentPopupId];
-  else statuses[currentPopupId] = st;
-  saveStatuses(statuses);
+$('popup-overlay').addEventListener('click', closePopup);
+$('status-popup').addEventListener('click', e => {
+  const b = e.target.closest('[data-st]'); if (!b || !currentPopupId) return;
+  setStatus(currentPopupId, b.dataset.st || null);
+});
+
+function setStatus(id, st) {
+  const r = touch(id);
+  if (st) r.status = st; else delete r.status;
+  // 「訪問済み」にしたら今日の日付を訪問日に記録
+  if (st === '済み') {
+    const t = todayStr();
+    r.visits = r.visits || [];
+    if (!r.visits.includes(t)) { r.visits.push(t); r.visits.sort(); }
+  }
+  cleanup(id);
+  saveRecords();
   closePopup();
   renderList();
 }
 
-// ===== アクション =====
-function callPhone(phone) { window.location.href = 'tel:' + phone.replace(/[^0-9+]/g,''); }
-function openNav(address)  { window.open('https://maps.google.com/?q='+encodeURIComponent(address)+'&dirflg=d','_blank'); }
-
 function confirmReset() {
-  if (confirm('全ての訪問ステータス・メモをリセットしますか？\nこの操作は元に戻せません。')) {
-    localStorage.removeItem(LS_STATUS);
-    localStorage.removeItem(LS_MEMOS);
+  if (!Object.keys(records).length) { toast('記録はありません'); return; }
+  if (confirm('全ての訪問ステータス・メモ・訪問日をリセットしますか？\n（念のため、先にバックアップが保存されます）')) {
+    exportJson(true);
+    records = {};
+    saveRecords();
     renderList();
+    toast('リセットしました');
   }
 }
 
-// ===== メモ =====
-function openMemo(id, name) {
+// ---- メモ -----------------------------------------------------------
+function openMemo(id) {
+  const c = allData.find(x => x.id === id); if (!c) return;
   currentMemoId = id;
-  const m = getMemos()[id] || {};
-  document.getElementById('memo-title').textContent = name;
-  document.getElementById('memo-has-bukken').checked    = !!m.has_bukken;
-  document.getElementById('memo-needs-followup').checked= !!m.needs_followup;
-  document.getElementById('memo-person').value = m.person||'';
-  document.getElementById('memo-text').value   = m.text||'';
-  document.getElementById('memo-modal').classList.add('open');
-  setTimeout(()=>document.getElementById('memo-person').focus(), 100);
+  const r = rec(id), m = r.memo || {};
+  $('memo-title').textContent = c.name;
+  $('memo-has-bukken').checked     = !!m.has_bukken;
+  $('memo-needs-followup').checked = !!m.needs_followup;
+  $('memo-person').value = m.person || '';
+  $('memo-text').value   = m.text || '';
+  memoVisits = (r.visits || []).slice();
+  $('memo-visit-date').value = todayStr();
+  renderMemoVisits();
+  $('memo-modal').classList.add('open');
 }
-function closeMemo() {
-  document.getElementById('memo-modal').classList.remove('open');
-  currentMemoId = null;
+function renderMemoVisits() {
+  $('memo-visits').innerHTML = memoVisits.length
+    ? memoVisits.map((d,i) => `<span class="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 text-xs font-semibold pl-2.5 pr-1 py-1 rounded-full">${fmtDate(d)}<button data-vi="${i}" aria-label="${fmtDate(d)}を削除" class="w-5 h-5 rounded-full text-emerald-600 active:bg-emerald-100">×</button></span>`).join('')
+    : '<span class="text-xs text-slate-400">まだ記録がありません（「訪問済み」にすると今日の日付が入ります）</span>';
 }
+$('memo-visits').addEventListener('click', e => {
+  const b = e.target.closest('[data-vi]'); if (!b) return;
+  memoVisits.splice(+b.dataset.vi, 1); renderMemoVisits();
+});
+$('memo-visit-add').addEventListener('click', () => {
+  const d = $('memo-visit-date').value;
+  if (!d) return;
+  if (!memoVisits.includes(d)) { memoVisits.push(d); memoVisits.sort(); }
+  renderMemoVisits();
+});
+function closeMemo() { $('memo-modal').classList.remove('open'); currentMemoId = null; }
 function saveMemo() {
   if (!currentMemoId) return;
-  const memos = getMemos();
-  memos[currentMemoId] = {
-    has_bukken:     document.getElementById('memo-has-bukken').checked,
-    needs_followup: document.getElementById('memo-needs-followup').checked,
-    person: document.getElementById('memo-person').value.trim(),
-    text:   document.getElementById('memo-text').value.trim(),
+  const r = touch(currentMemoId);
+  r.memo = {
+    has_bukken:     $('memo-has-bukken').checked,
+    needs_followup: $('memo-needs-followup').checked,
+    person: $('memo-person').value.trim(),
+    text:   $('memo-text').value.trim(),
   };
-  saveMemos(memos);
+  r.visits = memoVisits.slice();
+  cleanup(currentMemoId);
+  saveRecords();
   closeMemo();
   renderList();
 }
-document.getElementById('memo-modal').addEventListener('click', function(e){ if(e.target===this) closeMemo(); });
+$('memo-save').addEventListener('click', saveMemo);
+$('memo-close').addEventListener('click', closeMemo);
+$('memo-modal').addEventListener('click', function(e){ if (e.target === this) closeMemo(); });
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  closeMemo(); closePopup(); closeDrawer();
+});
 
-// ===== ユーティリティ =====
-function escHtml(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+// =====================================================================
+// バックアップ（書き出し・読み込み・CSV）
+// =====================================================================
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function download(filename, text, type) {
+  const blob = new Blob([text], { type });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+function exportJson(silent) {
+  const n = Object.keys(records).length;
+  if (!n) { if (!silent) toast('保存する記録がまだありません'); return; }
+  const payload = { app:'sapporo-navi', version:4, exportedAt:new Date().toISOString(), records };
+  download(`業者ナビ_バックアップ_${todayStr()}.json`, JSON.stringify(payload, null, 1), 'application/json');
+  localStorage.setItem(LS_BACKUP, JSON.stringify({ at:Date.now(), count:n }));
+  updateBackupInfo();
+  if (!silent) toast(`${n}件の記録を保存しました`);
+}
+$('import-file').addEventListener('change', async e => {
+  const f = e.target.files[0]; e.target.value = '';
+  if (!f) return;
+  try {
+    const json = JSON.parse(await f.text());
+    if (json.app !== 'sapporo-navi' || !json.records) throw new Error('format');
+    const incoming = json.records;
+    const n = Object.keys(incoming).length;
+    const mode = Object.keys(records).length
+      ? (confirm(`${n}件の記録を読み込みます。\n\nOK：今の記録と統合（同じ会社は新しい方を優先）\nキャンセル：読み込みをやめる`) ? 'merge' : null)
+      : 'merge';
+    if (!mode) return;
+    Object.entries(incoming).forEach(([id, r]) => {
+      const cur = records[id];
+      if (!cur || (r.updatedAt||0) >= (cur.updatedAt||0)) {
+        const visits = Array.from(new Set([...(cur && cur.visits || []), ...(r.visits || [])])).sort();
+        records[id] = { ...r };
+        if (visits.length) records[id].visits = visits;
+      }
+    });
+    saveRecords();
+    closeDrawer();
+    renderList();
+    toast(`${n}件の記録を読み込みました`);
+  } catch {
+    toast('このファイルは読み込めませんでした');
+  }
+});
+function csvCell(v) { v = String(v ?? ''); return /[",\n\r]/.test(v) ? '"' + v.replace(/"/g,'""') + '"' : v; }
+function exportCsv() {
+  const byId = Object.fromEntries(allData.map(c => [c.id, c]));
+  const rows = [['団体','支部','地域','商号','宅建番号','住所','電話','ステータス','最終訪問日','訪問回数','訪問日一覧','担当者','物件あり','要フォロー','メモ']];
+  Object.entries(records).forEach(([id, r]) => {
+    const c = byId[id]; if (!c) return;
+    const m = r.memo || {};
+    rows.push([c.source||'宅建協会', c.sibu, c._ward, c.name, c.takken_no, c.address, c.phone,
+      r.status ? STATUS_LABEL[r.status].replace(/^\S+\s/,'') : '', lastVisit(r), (r.visits||[]).length || '',
+      (r.visits||[]).join(' '), m.person||'', m.has_bukken?'○':'', m.needs_followup?'○':'', m.text||'']);
+  });
+  if (rows.length === 1) { toast('出力する記録がまだありません'); return; }
+  download(`業者ナビ_訪問記録_${todayStr()}.csv`, '﻿' + rows.map(r => r.map(csvCell).join(',')).join('\r\n'), 'text/csv');
+  toast(`${rows.length - 1}件をCSVで出力しました`);
+}
 
-loadData();
+function updateBackupInfo() {
+  const b = lsGet(LS_BACKUP, null);
+  const n = Object.keys(records).length;
+  $('mi-backup').textContent = b ? `前回 ${new Date(b.at).toLocaleDateString('ja-JP')}（${b.count}件）` : '未保存';
+  // 記録が10件以上あり、30日以上バックアップしていなければ催促
+  const stale = !b || (Date.now() - b.at > 30*24*3600*1000);
+  $('backup-banner').classList.toggle('hidden', !(n >= 10 && stale));
+}
+$('banner-backup').addEventListener('click', () => exportJson());
+
+// =====================================================================
+// ユーティリティ
+// =====================================================================
+function escHtml(s){ return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+let _toastTimer = null;
+function toast(msg) {
+  const t = $('toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(_toastTimer); _toastTimer = setTimeout(() => t.classList.remove('show'), 2600);
+}
+
+// 保存データがブラウザに勝手に消されにくくする（対応ブラウザのみ）
+if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+
+(async () => { await migrateLegacy(); await loadData(); })();
 </script>
 </body>
 </html>
