@@ -16,6 +16,10 @@ import hashlib
 import sys
 import unicodedata
 
+# GitHub Actions など IPv6 が使えない環境でも接続できるよう、IPv4 で接続する
+import urllib3.util.connection as _u3conn
+_u3conn.HAS_IPV6 = False
+
 MEIBO_URL = "https://takken.basekernel.ne.jp/meibo.php"
 
 SIBU_LIST = [
